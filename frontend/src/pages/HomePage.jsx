@@ -111,11 +111,14 @@ export default function HomePage() {
           <h1>Find Top Transfer Portal Players</h1>
           <p>Select stats to find the best players by combined percentile score</p>
 
-          {error && <p className="error-msg" style={{ maxWidth: 600, margin: "0 auto 1rem" }}>{error}</p>}
+          {error && (
+            <p className="error-msg" style={{ maxWidth: 600, margin: "0 auto 1rem" }}>
+              {error}
+            </p>
+          )}
 
           <form className="search-form" onSubmit={handleSearch}>
 
-            {/* Stat selectors */}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
               {selectedStats.map((stat, index) => (
                 <div key={index} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -136,11 +139,17 @@ export default function HomePage() {
                       type="button"
                       onClick={() => removeStat(index)}
                       style={{
-                        marginTop: "1.5rem", background: "none", border: "none",
-                        color: "var(--error)", fontSize: "1.25rem", cursor: "pointer",
+                        marginTop: "1.5rem",
+                        background: "none",
+                        border: "none",
+                        color: "var(--error)",
+                        fontSize: "1.25rem",
+                        cursor: "pointer",
                       }}
                       aria-label={`Remove stat ${index + 1}`}
-                    >✕</button>
+                    >
+                      ✕
+                    </button>
                   )}
                 </div>
               ))}
@@ -155,7 +164,6 @@ export default function HomePage() {
               + Add Stat
             </button>
 
-            {/* Min% filter */}
             <div className="form-group" style={{ marginBottom: "1rem" }}>
               <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
                 <input
@@ -167,23 +175,33 @@ export default function HomePage() {
               </label>
             </div>
 
-            {/* Advanced filters toggle */}
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
               style={{
-                background: "none", border: "1px solid var(--border)",
-                borderRadius: "var(--radius)", padding: "0.5rem 1rem",
-                color: "var(--text)", cursor: "pointer", width: "100%",
-                marginBottom: "1rem", fontWeight: 600, fontSize: "0.9rem",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem",
+                background: "none",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                padding: "0.5rem 1rem",
+                color: "var(--text)",
+                cursor: "pointer",
+                width: "100%",
+                marginBottom: "1rem",
+                fontWeight: 600,
+                fontSize: "0.9rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
               }}
             >
               {showAdvanced ? "▲" : "▼"} Advanced Filters
               {activeFilterCount > 0 && (
                 <span style={{
-                  background: "var(--primary)", color: "#fff",
-                  borderRadius: "999px", padding: "0.1rem 0.5rem",
+                  background: "var(--primary)",
+                  color: "#fff",
+                  borderRadius: "999px",
+                  padding: "0.1rem 0.5rem",
                   fontSize: "0.75rem",
                 }}>
                   {activeFilterCount} active
@@ -191,17 +209,101 @@ export default function HomePage() {
               )}
             </button>
 
-            {/* Advanced filter rows */}
             {showAdvanced && (
               <div style={{
-                border: "1px solid var(--border)", borderRadius: "var(--radius)",
-                padding: "1rem", marginBottom: "1rem",
-                display: "flex", flexDirection: "column", gap: "0.75rem",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                padding: "1rem",
+                marginBottom: "1rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.75rem",
               }}>
                 <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
                   Filter out players who don't meet a minimum or exceed a maximum in any stat.
                 </p>
 
                 {advancedFilters.map((filter, index) => (
-                  <div key={index} style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end", flexWrap: "wrap" }}>
-                    <div className="form-group" style={{ flex: 2, minWidth: "120px"
+                  <div
+                    key={index}
+                    style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end", flexWrap: "wrap" }}
+                  >
+                    <div className="form-group" style={{ flex: 2, minWidth: "120px", marginBottom: 0 }}>
+                      <label style={{ fontSize: "0.75rem" }}>Stat</label>
+                      <select
+                        value={filter.stat}
+                        onChange={(e) => updateAdvancedFilter(index, "stat", e.target.value)}
+                      >
+                        {STATS.map((s) => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ flex: 1, minWidth: "90px", marginBottom: 0 }}>
+                      <label style={{ fontSize: "0.75rem" }}>Type</label>
+                      <select
+                        value={filter.type}
+                        onChange={(e) => updateAdvancedFilter(index, "type", e.target.value)}
+                      >
+                        <option value="min">Min ≥</option>
+                        <option value="max">Max ≤</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ flex: 1, minWidth: "80px", marginBottom: 0 }}>
+                      <label style={{ fontSize: "0.75rem" }}>Value</label>
+                      <input
+                        type="number"
+                        value={filter.value}
+                        onChange={(e) => updateAdvancedFilter(index, "value", e.target.value)}
+                        placeholder="e.g. 10"
+                        step="any"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => removeAdvancedFilter(index)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--error)",
+                        fontSize: "1.25rem",
+                        cursor: "pointer",
+                        paddingBottom: "0.4rem",
+                      }}
+                      aria-label="Remove filter"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={addAdvancedFilter}
+                  style={{
+                    background: "none",
+                    border: "1px dashed var(--border)",
+                    borderRadius: "var(--radius)",
+                    padding: "0.4rem",
+                    color: "var(--text-muted)",
+                    cursor: "pointer",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  + Add Filter
+                </button>
+              </div>
+            )}
+
+            <button className="btn btn-primary" type="submit">
+              Find Players
+            </button>
+          </form>
+        </div>
+      </main>
+    </>
+  );
+}
