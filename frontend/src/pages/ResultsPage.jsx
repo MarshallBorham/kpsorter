@@ -8,6 +8,7 @@ export default function ResultsPage() {
   const [searchParams] = useSearchParams();
   const stat1 = searchParams.get("stat1");
   const stat2 = searchParams.get("stat2");
+  const filterMin = searchParams.get("filterMin");
 
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +22,7 @@ export default function ResultsPage() {
       setLoading(true);
       setError("");
       try {
-        const res = await authFetch(`/api/players?stat1=${stat1}&stat2=${stat2}`);
+        const res = await authFetch(`/api/players?stat1=${stat1}&stat2=${stat2}&filterMin=${filterMin}`);
         const data = await res.json();
         if (!res.ok) {
           setError(data.error || "Failed to fetch players");
@@ -35,7 +36,7 @@ export default function ResultsPage() {
       }
     }
     fetchPlayers();
-  }, [stat1, stat2]);
+  }, [stat1, stat2, filterMin]);
 
   async function handleSave(player) {
     setSaving(player.id);
