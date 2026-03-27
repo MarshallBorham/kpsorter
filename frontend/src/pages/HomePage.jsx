@@ -46,6 +46,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const [stat1, setStat1] = useState("eFG");
   const [stat2, setStat2] = useState("ARate");
+  const [filterMin, setFilterMin] = useState(true);
   const [error, setError] = useState("");
 
   function handleSearch(e) {
@@ -55,7 +56,7 @@ export default function HomePage() {
       return;
     }
     setError("");
-    navigate(`/results?stat1=${stat1}&stat2=${stat2}`);
+    navigate(`/results?stat1=${stat1}&stat2=${stat2}&filterMin=${filterMin}`);
   }
 
   return (
@@ -95,6 +96,18 @@ export default function HomePage() {
                 </select>
               </div>
             </div>
+
+            <div className="form-group" style={{ marginTop: "1rem" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={filterMin}
+                  onChange={(e) => setFilterMin(e.target.checked)}
+                />
+                Only show players with Min% ≥ 15%
+              </label>
+            </div>
+
             <button className="btn btn-primary" type="submit">
               Find Players
             </button>

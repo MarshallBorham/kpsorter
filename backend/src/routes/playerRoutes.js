@@ -13,8 +13,8 @@ const validStats = [
   "BPM", "OBPM", "DBPM", "3P100",
 ];
 
-function calcPercentiles(stat) {
-  const values = players.map((p) => p.stats[stat] ?? 0).sort((a, b) => a - b);
+function calcPercentiles(stat, pool) {
+  const values = pool.map((p) => p.stats[stat] ?? 0).sort((a, b) => a - b);
   const total = values.length;
   return function getPercentile(val) {
     let low = 0, high = total;
@@ -28,7 +28,7 @@ function calcPercentiles(stat) {
 }
 
 playerRouter.get("/", requireAuth, (req, res) => {
-  const { stat1, stat2 } = req.query;
+  const { stat1, stat2, filterMin } = req.query;
 
   if (!stat1 || !stat2) {
     return res.status(400).json({ error: "stat1 and stat2 query params are required" });
@@ -40,10 +40,14 @@ playerRouter.get("/", requireAuth, (req, res) => {
     return res.status(400).json({ error: "stat1 and stat2 must be different" });
   }
 
-  const getPercentile1 = calcPercentiles(stat1);
-  const getPercentile2 = calcPercentiles(stat2);
+  const pool = filterMin === "true"
+    ? players.filter((p) => (p.stats.Min ?? 0) >= 15)
+    : players;
 
-  const ranked = players
+  const getPercentile1 = calcPercentiles(stat1, pool);
+  const getPercentile2 = calcPercentiles(stat2, pool);
+
+  const ranked = pool
     .map((p) => {
       const stat1Value = p.stats[stat1] ?? 0;
       const stat2Value = p.stats[stat2] ?? 0;
