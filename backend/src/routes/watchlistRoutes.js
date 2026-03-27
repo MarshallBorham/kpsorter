@@ -100,3 +100,35 @@ watchlistRouter.delete("/:playerId", requireAuth, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+// GET /api/watchlist/trending — top 3 most saved players site wide
+watchlistRouter.get("/trending", requireAuth, async (req, res) => {
+  try {
+    const allUsers = await User.find({}, "watchlist");
+
+    const counts = {};
+    for (const user of allUsers) {
+      const seen = new Set();
+      for (const entry of user.watchlist) {
+        if (!seen.has(entry.playerId)) {
+          counts[entry.playerId] = (counts[entry.playerId] || 0) + 1;
+          seen.add(entry.playerId);
+        }
+      }
+    }
+
+    const top3 = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([playerId]) => {
+        const player = players.find((p) => p.id === playerId);
+        return player ? { playerId, name: player.name, team: player.team } : null;
+      })
+      .filter(Boolean);
+
+    res.json(top3);
+  } catch (err) {
+    console.error("Trending error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});

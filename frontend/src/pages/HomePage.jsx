@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import Header from "../components/Header.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const STATS = [
   { value: "G",         label: "Games Played" },
@@ -45,6 +46,7 @@ const STATS = [
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const { authFetch } = useAuth();
   const [selectedStats, setSelectedStats] = useState(["eFG", "ARate"]);
   const [filterMin, setFilterMin] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -52,6 +54,22 @@ export default function HomePage() {
     { stat: "G", type: "min", value: "" },
   ]);
   const [error, setError] = useState("");
+  const [trending, setTrending] = useState([]);
+
+  useEffect(() => {
+    async function fetchTrending() {
+      try {
+        const res = await authFetch("/api/watchlist/trending");
+        if (res.ok) {
+          const data = await res.json();
+          setTrending(data);
+        }
+      } catch {
+        // silently fail — trending is non-critical
+      }
+    }
+    fetchTrending();
+  }, []);
 
   function handleStatChange(index, value) {
     const updated = [...selectedStats];
@@ -118,7 +136,6 @@ export default function HomePage() {
           )}
 
           <form className="search-form" onSubmit={handleSearch}>
-
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
               {selectedStats.map((stat, index) => (
                 <div key={index} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -302,6 +319,34 @@ export default function HomePage() {
               Find Players
             </button>
           </form>
+
+          {/* Trending box */}
+          {trending.length > 0 && (
+            <div style={{
+              background: "var(--surface)",
+              borderRadius: "var(--radius)",
+              boxShadow: "var(--shadow)",
+              padding: "1.25rem 1.5rem",
+              maxWidth: "600px",
+              margin: "1.5rem auto 0",
+              textAlign: "left",
+            }}>
+              <h2 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "0.75rem", color: "var(--text)" }}>
+                🔥 Most Saved Players
+              </h2>
+              <ol style={{ paddingLeft: "1.25rem", margin: 0, display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                {trending.map((player) => (
+                  <li key={player.playerId} style={{ color: "var(--text)", fontSize: "0.95rem" }}>
+                    {player.name}
+                    <span style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginLeft: "0.4rem" }}>
+                      {player.team}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
         </div>
       </main>
     </>
