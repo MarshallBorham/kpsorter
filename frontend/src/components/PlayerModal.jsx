@@ -35,12 +35,10 @@ export default function PlayerModal({ playerId, onClose }) {
     load();
   }, [playerId]);
 
-  // Close on backdrop click
   function handleBackdrop(e) {
     if (e.target === e.currentTarget) onClose();
   }
 
-  // Close on Escape key
   useEffect(() => {
     function onKey(e) { if (e.key === "Escape") onClose(); }
     window.addEventListener("keydown", onKey);
@@ -57,14 +55,15 @@ export default function PlayerModal({ playerId, onClose }) {
       }}
     >
       <div style={{
-        background: "var(--surface-color)",
-        borderRadius: "var(--border-radius-lg)",
+        background: "var(--surface)",
+        borderRadius: "var(--radius)",
         padding: "2rem",
         width: "100%",
         maxWidth: "700px",
         maxHeight: "85vh",
         overflowY: "auto",
         position: "relative",
+        boxShadow: "var(--shadow)",
       }}>
         <button
           onClick={onClose}
@@ -77,11 +76,11 @@ export default function PlayerModal({ playerId, onClose }) {
         >✕</button>
 
         {loading && <p>⏳ Loading…</p>}
-        {error && <p style={{ color: "red" }}>⚠️ {error}</p>}
+        {error && <p style={{ color: "var(--error)" }}>⚠️ {error}</p>}
 
         {player && (
           <>
-            <h2 style={{ marginBottom: "0.25rem" }}>{player.name}</h2>
+            <h2 style={{ marginBottom: "0.25rem", color: "var(--text)" }}>{player.name}</h2>
             <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem" }}>
               {player.team} · {player.position} · {player.year}
             </p>
@@ -93,14 +92,15 @@ export default function PlayerModal({ playerId, onClose }) {
             }}>
               {Object.entries(player.stats).map(([key, val]) => (
                 <div key={key} style={{
-                  background: "var(--background-color)",
-                  borderRadius: "var(--border-radius)",
+                  background: "var(--bg)",
+                  borderRadius: "var(--radius)",
                   padding: "0.6rem 0.8rem",
+                  border: "1px solid var(--border)",
                 }}>
                   <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginBottom: "0.2rem" }}>
                     {STAT_LABELS[key] || key}
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: "1rem" }}>
+                  <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text)" }}>
                     {typeof val === "number" ? val.toFixed(1) : val}
                   </div>
                 </div>
