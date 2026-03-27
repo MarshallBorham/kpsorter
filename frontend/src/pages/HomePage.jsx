@@ -27,10 +27,11 @@ const STATS = [
   { value: "3PM",       label: "3PM" },
   { value: "3PA",       label: "3PA" },
   { value: "3P",        label: "3P%" },
-  { value: "Shots",     label: "Shot Rate" },
+  { value: "Shots",     label: "Shot %" },
   { value: "Close2PM",  label: "Close 2PM" },
   { value: "Close2PA",  label: "Close 2PA" },
   { value: "Close2P",   label: "Close 2P%" },
+  { value: "Far2PM",    label: "Far 2PM" },
   { value: "Far2PA",    label: "Far 2PA" },
   { value: "Far2P",     label: "Far 2P%" },
   { value: "DunksAtt",  label: "Dunks Attempted" },
@@ -46,6 +47,10 @@ export default function HomePage() {
   const navigate = useNavigate();
   const [selectedStats, setSelectedStats] = useState(["eFG", "ARate"]);
   const [filterMin, setFilterMin] = useState(true);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState([
+    { stat: "G", type: "min", value: "" },
+  ]);
   const [error, setError] = useState("");
 
   function handleStatChange(index, value) {
@@ -63,6 +68,20 @@ export default function HomePage() {
     setSelectedStats(selectedStats.filter((_, i) => i !== index));
   }
 
+  function addAdvancedFilter() {
+    setAdvancedFilters([...advancedFilters, { stat: "G", type: "min", value: "" }]);
+  }
+
+  function removeAdvancedFilter(index) {
+    setAdvancedFilters(advancedFilters.filter((_, i) => i !== index));
+  }
+
+  function updateAdvancedFilter(index, field, value) {
+    const updated = [...advancedFilters];
+    updated[index] = { ...updated[index], [field]: value };
+    setAdvancedFilters(updated);
+  }
+
   function handleSearch(e) {
     e.preventDefault();
     const unique = new Set(selectedStats);
@@ -71,8 +90,18 @@ export default function HomePage() {
       return;
     }
     setError("");
-    navigate(`/results?stats=${selectedStats.join(",")}&filterMin=${filterMin}`);
+
+    const activeFilters = advancedFilters.filter((f) => f.value !== "");
+    const filtersParam = activeFilters.length > 0
+      ? encodeURIComponent(JSON.stringify(activeFilters))
+      : "";
+
+    navigate(
+      `/results?stats=${selectedStats.join(",")}&filterMin=${filterMin}${filtersParam ? `&filters=${filtersParam}` : ""}`
+    );
   }
+
+  const activeFilterCount = advancedFilters.filter((f) => f.value !== "").length;
 
   return (
     <>
@@ -85,6 +114,8 @@ export default function HomePage() {
           {error && <p className="error-msg" style={{ maxWidth: 600, margin: "0 auto 1rem" }}>{error}</p>}
 
           <form className="search-form" onSubmit={handleSearch}>
+
+            {/* Stat selectors */}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
               {selectedStats.map((stat, index) => (
                 <div key={index} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -105,18 +136,11 @@ export default function HomePage() {
                       type="button"
                       onClick={() => removeStat(index)}
                       style={{
-                        marginTop: "1.5rem",
-                        background: "none",
-                        border: "none",
-                        color: "var(--danger-color, #e53e3e)",
-                        fontSize: "1.25rem",
-                        cursor: "pointer",
-                        lineHeight: 1,
+                        marginTop: "1.5rem", background: "none", border: "none",
+                        color: "var(--error)", fontSize: "1.25rem", cursor: "pointer",
                       }}
                       aria-label={`Remove stat ${index + 1}`}
-                    >
-                      ✕
-                    </button>
+                    >✕</button>
                   )}
                 </div>
               ))}
@@ -131,6 +155,7 @@ export default function HomePage() {
               + Add Stat
             </button>
 
+            {/* Min% filter */}
             <div className="form-group" style={{ marginBottom: "1rem" }}>
               <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
                 <input
@@ -142,12 +167,41 @@ export default function HomePage() {
               </label>
             </div>
 
-            <button className="btn btn-primary" type="submit">
-              Find Players
+            {/* Advanced filters toggle */}
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              style={{
+                background: "none", border: "1px solid var(--border)",
+                borderRadius: "var(--radius)", padding: "0.5rem 1rem",
+                color: "var(--text)", cursor: "pointer", width: "100%",
+                marginBottom: "1rem", fontWeight: 600, fontSize: "0.9rem",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem",
+              }}
+            >
+              {showAdvanced ? "▲" : "▼"} Advanced Filters
+              {activeFilterCount > 0 && (
+                <span style={{
+                  background: "var(--primary)", color: "#fff",
+                  borderRadius: "999px", padding: "0.1rem 0.5rem",
+                  fontSize: "0.75rem",
+                }}>
+                  {activeFilterCount} active
+                </span>
+              )}
             </button>
-          </form>
-        </div>
-      </main>
-    </>
-  );
-}
+
+            {/* Advanced filter rows */}
+            {showAdvanced && (
+              <div style={{
+                border: "1px solid var(--border)", borderRadius: "var(--radius)",
+                padding: "1rem", marginBottom: "1rem",
+                display: "flex", flexDirection: "column", gap: "0.75rem",
+              }}>
+                <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
+                  Filter out players who don't meet a minimum or exceed a maximum in any stat.
+                </p>
+
+                {advancedFilters.map((filter, index) => (
+                  <div key={index} style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+                    <div className="form-group" style={{ flex: 2, minWidth: "120px"

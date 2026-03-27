@@ -9,9 +9,11 @@ const validStats = [
   "2P", "3P", "Min", "Shots", "G", "ORTG", "DRTG", "Usg",
   "FTA", "FTM", "2PM", "2PA", "3PM", "3PA",
   "FC40", "Close2PM", "Close2PA", "Close2P",
-  "Far2PA", "Far2P", "DunksAtt", "DunksMade", "DunkPct",
+  "Far2PM", "Far2PA", "Far2P", "DunksAtt", "DunksMade", "DunkPct",
   "BPM", "OBPM", "DBPM", "3P100",
 ];
+
+const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
 
 function calcPercentiles(stat, pool) {
   const values = pool.map((p) => p.stats[stat] ?? 0).sort((a, b) => a - b);
@@ -23,12 +25,13 @@ function calcPercentiles(stat, pool) {
       if (values[mid] < val) low = mid + 1;
       else high = mid;
     }
-    return Math.round((low / total) * 100);
+    const pct = Math.round((low / total) * 100);
+    return LOWER_IS_BETTER.has(stat) ? 100 - pct : pct;
   };
 }
 
 playerRouter.get("/", requireAuth, (req, res) => {
-  const { stats, filterMin } = req.query;
+  const { stats, filterMin, filters } = req.query;
 
   if (!stats) {
     return res.status(400).json({ error: "stats query param is required" });
@@ -48,9 +51,31 @@ playerRouter.get("/", requireAuth, (req, res) => {
     return res.status(400).json({ error: "Duplicate stats are not allowed" });
   }
 
-  const pool = filterMin === "true"
+  // Parse advanced filters
+  let advancedFilters = [];
+  if (filters) {
+    try {
+      advancedFilters = JSON.parse(decodeURIComponent(filters));
+    } catch {
+      return res.status(400).json({ error: "Invalid filters format" });
+    }
+  }
+
+  // Build pool — apply Min% filter first
+  let pool = filterMin === "true"
     ? players.filter((p) => (p.stats.Min ?? 0) >= 15)
     : players;
+
+  // Apply advanced filters
+  for (const f of advancedFilters) {
+    const val = parseFloat(f.value);
+    if (isNaN(val)) continue;
+    if (f.type === "min") {
+      pool = pool.filter((p) => (p.stats[f.stat] ?? 0) >= val);
+    } else if (f.type === "max") {
+      pool = pool.filter((p) => (p.stats[f.stat] ?? 0) <= val);
+    }
+  }
 
   const percentileFns = {};
   for (const s of statList) {
@@ -85,7 +110,7 @@ playerRouter.get("/", requireAuth, (req, res) => {
   res.json({ statList, results: ranked });
 });
 
-// GET /api/players/:playerId — full stats for a single player
+// GET /api/players/:playerId
 playerRouter.get("/:playerId", requireAuth, (req, res) => {
   const player = players.find((p) => p.id === req.params.playerId);
   if (!player) return res.status(404).json({ error: "Player not found" });
