@@ -1,0 +1,7 @@
+{
+  "name": "kpsorter",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd backend && npm install && node src/main.js"
+  }
+}
