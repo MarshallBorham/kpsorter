@@ -21,8 +21,14 @@ const docs = players.map((p) => ({
   stats: p.stats,
 }));
 
-await Player.insertMany(docs);
-console.log(`Inserted ${docs.length} players`);
+const batchSize = 500;
+let inserted = 0;
+for (let i = 0; i < docs.length; i += batchSize) {
+  const batch = docs.slice(i, i + batchSize);
+  await Player.insertMany(batch, { ordered: false });
+  inserted += batch.length;
+  console.log(`Inserted ${inserted}/${docs.length}`);
+}
 
 await mongoose.disconnect();
 console.log("Done");
