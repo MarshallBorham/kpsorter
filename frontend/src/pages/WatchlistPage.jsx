@@ -4,6 +4,14 @@ import Header from "../components/Header.jsx";
 import PlayerModal from "../components/PlayerModal.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
+function formatVal(stat, val) {
+  const wholeNumber = new Set(["G","FTA","FTM","2PM","2PA","3PM","3PA","Close2PM","Close2PA","Far2PM","Far2PA","DunksAtt","DunksMade"]);
+  const hundredths = new Set(["DunkPct","Far2P","Close2P","3P","2P","FT"]);
+  if (wholeNumber.has(stat)) return Math.round(val).toString();
+  if (hundredths.has(stat)) return val.toFixed(2);
+  return val.toFixed(1);
+}
+
 export default function WatchlistPage() {
   const { authFetch } = useAuth();
   const [watchlist, setWatchlist] = useState([]);
@@ -77,10 +85,10 @@ export default function WatchlistPage() {
               const key = `${entry.playerId}-${statsKey}`;
               return (
                 <div key={key} style={{
-                  background: "var(--surface-color)",
-                  borderRadius: "var(--border-radius-lg)",
+                  background: "var(--surface)",
+                  borderRadius: "var(--radius)",
                   padding: "1.25rem",
-                  boxShadow: "var(--shadow-sm)",
+                  boxShadow: "var(--shadow)",
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.5rem" }}>
                     <div>
@@ -88,7 +96,7 @@ export default function WatchlistPage() {
                         onClick={() => setModalPlayerId(entry.playerId)}
                         style={{
                           background: "none", border: "none", padding: 0,
-                          color: "var(--primary-color)", fontWeight: 700,
+                          color: "var(--primary)", fontWeight: 700,
                           cursor: "pointer", textDecoration: "underline",
                           fontSize: "1.1rem", textAlign: "left",
                         }}
@@ -108,19 +116,17 @@ export default function WatchlistPage() {
                     </button>
                   </div>
 
-                  <div style={{
-                    display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "1rem"
-                  }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "1rem" }}>
                     {entry.stats.map((s) => (
                       <div key={s} style={{
-                        background: "var(--background-color)",
-                        borderRadius: "var(--border-radius)",
+                        background: "var(--bg)",
+                        borderRadius: "var(--radius)",
                         padding: "0.5rem 0.75rem",
                         minWidth: "80px",
                       }}>
                         <div style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{s}</div>
                         <div style={{ fontWeight: 700 }}>
-                          {(entry.statValues[s] ?? 0).toFixed(1)}
+                          {formatVal(s, entry.statValues[s] ?? 0)}
                         </div>
                       </div>
                     ))}

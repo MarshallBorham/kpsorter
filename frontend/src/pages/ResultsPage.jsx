@@ -4,6 +4,14 @@ import Header from "../components/Header.jsx";
 import PlayerModal from "../components/PlayerModal.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
+function formatVal(stat, val) {
+  const wholeNumber = new Set(["G","FTA","FTM","2PM","2PA","3PM","3PA","Close2PM","Close2PA","Far2PM","Far2PA","DunksAtt","DunksMade"]);
+  const hundredths = new Set(["DunkPct","Far2P","Close2P","3P","2P","FT"]);
+  if (wholeNumber.has(stat)) return Math.round(val).toString();
+  if (hundredths.has(stat)) return val.toFixed(2);
+  return val.toFixed(1);
+}
+
 export default function ResultsPage() {
   const { authFetch } = useAuth();
   const [searchParams] = useSearchParams();
@@ -11,9 +19,7 @@ export default function ResultsPage() {
   const filterMin = searchParams.get("filterMin");
   const filtersParam = searchParams.get("filters");
   const statList = statsParam ? statsParam.split(",") : [];
-  const activeFilters = filtersParam
-    ? JSON.parse(decodeURIComponent(filtersParam))
-    : [];
+  const activeFilters = filtersParam ? JSON.parse(decodeURIComponent(filtersParam)) : [];
 
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +131,7 @@ export default function ResultsPage() {
                       <td>{player.year}</td>
                       {statList.map((s) => (
                         <td key={s}>
-                          {(player.statValues[s] ?? 0).toFixed(1)}
+                          {formatVal(s, player.statValues[s] ?? 0)}
                           <span style={{ marginLeft: "0.4rem", fontSize: "0.75rem", color: "var(--text-muted)" }}>
                             ({player.statPcts[s]}th)
                           </span>
