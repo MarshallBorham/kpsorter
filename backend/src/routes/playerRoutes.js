@@ -1,5 +1,5 @@
 import express from "express";
-import { players } from "../data/players.js";
+import { Player } from "../models/Player.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const playerRouter = express.Router();
@@ -30,7 +30,7 @@ function calcPercentiles(stat, pool) {
   };
 }
 
-playerRouter.get("/", requireAuth, (req, res) => {
+playerRouter.get("/", requireAuth, async (req, res) => {
   const { stats, filterMin, filters } = req.query;
 
   if (!stats) {
@@ -60,55 +60,62 @@ playerRouter.get("/", requireAuth, (req, res) => {
     }
   }
 
-  let pool = filterMin === "true"
-    ? players.filter((p) => (p.stats.Min ?? 0) >= 15)
-    : players;
-
+  const query = {};
+  if (filterMin === "true") {
+    query["stats.Min"] = { $gte: 15 };
+  }
   for (const f of advancedFilters) {
     const val = parseFloat(f.value);
     if (isNaN(val)) continue;
-    if (f.type === "min") {
-      pool = pool.filter((p) => (p.stats[f.stat] ?? 0) >= val);
-    } else if (f.type === "max") {
-      pool = pool.filter((p) => (p.stats[f.stat] ?? 0) <= val);
+    query[`stats.${f.stat}`] = f.type === "min" ? { $gte: val } : { $lte: val };
+  }
+
+  try {
+    const pool = await Player.find(query).lean();
+
+    const percentileFns = {};
+    for (const s of statList) {
+      percentileFns[s] = calcPercentiles(s, pool);
     }
+
+    const ranked = pool
+      .map((p) => {
+        const statValues = {};
+        const statPcts = {};
+        let combined = 0;
+        for (const s of statList) {
+          const val = p.stats[s] ?? 0;
+          const pct = percentileFns[s](val);
+          statValues[s] = val;
+          statPcts[s] = pct;
+          combined += pct;
+        }
+        return {
+          id: p.id,
+          name: p.name,
+          team: p.team,
+          year: p.year,
+          position: p.position,
+          statValues,
+          statPcts,
+          combined,
+        };
+      })
+      .sort((a, b) => b.combined - a.combined);
+
+    res.json({ statList, results: ranked });
+  } catch (err) {
+    console.error("Player search error:", err);
+    res.status(500).json({ error: "Server error" });
   }
-
-  const percentileFns = {};
-  for (const s of statList) {
-    percentileFns[s] = calcPercentiles(s, pool);
-  }
-
-  const ranked = pool
-    .map((p) => {
-      const statValues = {};
-      const statPcts = {};
-      let combined = 0;
-      for (const s of statList) {
-        const val = p.stats[s] ?? 0;
-        const pct = percentileFns[s](val);
-        statValues[s] = val;
-        statPcts[s] = pct;
-        combined += pct;
-      }
-      return {
-        id: p.id,
-        name: p.name,
-        team: p.team,
-        year: p.year,
-        position: p.position,
-        statValues,
-        statPcts,
-        combined,
-      };
-    })
-    .sort((a, b) => b.combined - a.combined);
-
-  res.json({ statList, results: ranked });
 });
 
-playerRouter.get("/:playerId", requireAuth, (req, res) => {
-  const player = players.find((p) => p.id === req.params.playerId);
-  if (!player) return res.status(404).json({ error: "Player not found" });
-  res.json(player);
+playerRouter.get("/:playerId", requireAuth, async (req, res) => {
+  try {
+    const player = await Player.findOne({ id: req.params.playerId }).lean();
+    if (!player) return res.status(404).json({ error: "Player not found" });
+    res.json(player);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 });

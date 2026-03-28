@@ -1,6 +1,6 @@
 import express from "express";
 import { User } from "../models/User.js";
-import { players } from "../data/players.js";
+import { Player } from "../models/Player.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const watchlistRouter = express.Router();
@@ -20,16 +20,17 @@ watchlistRouter.get("/trending", requireAuth, async (req, res) => {
       }
     }
 
-    const top3 = Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([playerId]) => {
-        const player = players.find((p) => p.id === playerId);
-        return player ? { playerId, name: player.name, team: player.team } : null;
-      })
-      .filter(Boolean)
-      .slice(0, 3);
+    const top3 = await Promise.all(
+      Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(async ([playerId]) => {
+          const player = await Player.findOne({ id: playerId }).lean();
+          return player ? { playerId, name: player.name, team: player.team } : null;
+        })
+    );
 
-    res.json(top3);
+    res.json(top3.filter(Boolean).slice(0, 3));
   } catch (err) {
     console.error("Trending error:", err);
     res.status(500).json({ error: "Server error" });
@@ -41,28 +42,32 @@ watchlistRouter.get("/", requireAuth, async (req, res) => {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    const enriched = user.watchlist.map((entry) => {
-      const player = players.find((p) => p.id === entry.playerId);
-      if (!player) return null;
+    const enriched = (
+      await Promise.all(
+        user.watchlist.map(async (entry) => {
+          const player = await Player.findOne({ id: entry.playerId }).lean();
+          if (!player) return null;
 
-      const statValues = {};
-      const statList = entry.stats || [];
-      for (const s of statList) {
-        statValues[s] = player.stats[s] ?? 0;
-      }
+          const statValues = {};
+          const statList = entry.stats || [];
+          for (const s of statList) {
+            statValues[s] = player.stats[s] ?? 0;
+          }
 
-      return {
-        playerId: entry.playerId,
-        stats: statList,
-        statValues,
-        addedAt: entry.addedAt,
-        name: player.name,
-        team: player.team,
-        year: player.year,
-        position: player.position,
-        allStats: player.stats,
-      };
-    }).filter(Boolean);
+          return {
+            playerId: entry.playerId,
+            stats: statList,
+            statValues,
+            addedAt: entry.addedAt,
+            name: player.name,
+            team: player.team,
+            year: player.year,
+            position: player.position,
+            allStats: player.stats,
+          };
+        })
+      )
+    ).filter(Boolean);
 
     res.json(enriched);
   } catch (err) {
@@ -78,7 +83,7 @@ watchlistRouter.post("/", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "playerId and stats array are required" });
   }
 
-  const playerExists = players.find((p) => p.id === playerId);
+  const playerExists = await Player.findOne({ id: playerId }).lean();
   if (!playerExists) {
     return res.status(404).json({ error: "Player not found" });
   }
