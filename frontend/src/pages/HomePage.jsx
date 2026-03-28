@@ -18,7 +18,7 @@ const STATS = [
   { value: "Blk",       label: "Block %" },
   { value: "Stl",       label: "Steal %" },
   { value: "FTRate",    label: "Free Throw Rate %" },
-  { value: "FC40",      label: "Fouls per 40 Minutes" },
+  { value: "FC40",      label: "Fouls Committed per 40" },
   { value: "FTA",       label: "FTA" },
   { value: "FTM",       label: "FTM" },
   { value: "FT",        label: "FT%" },
@@ -136,7 +136,6 @@ export default function HomePage() {
 
           <form className="search-form" onSubmit={handleSearch}>
 
-            {/* Stat selectors */}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
               {selectedStats.map((stat, index) => (
                 <div key={index} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -173,7 +172,6 @@ export default function HomePage() {
               ))}
             </div>
 
-            {/* Add Stat */}
             <button
               type="button"
               className="btn btn-secondary"
@@ -183,7 +181,6 @@ export default function HomePage() {
               + Add Stat
             </button>
 
-            {/* Find Players */}
             <button
               className="btn btn-primary"
               type="submit"
@@ -192,7 +189,6 @@ export default function HomePage() {
               Find Players
             </button>
 
-            {/* Min% filter */}
             <div className="form-group" style={{ marginBottom: "1rem" }}>
               <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
                 <input
@@ -204,7 +200,6 @@ export default function HomePage() {
               </label>
             </div>
 
-            {/* Advanced filters toggle */}
             <button
               type="button"
               onClick={() => setShowAdvanced(!showAdvanced)}
@@ -239,7 +234,6 @@ export default function HomePage() {
               )}
             </button>
 
-            {/* Advanced filter rows */}
             {showAdvanced && (
               <div style={{
                 border: "1px solid var(--border)",
@@ -331,7 +325,6 @@ export default function HomePage() {
 
           </form>
 
-          {/* Trending box */}
           {trending.length > 0 && (
             <div style={{
               background: "var(--surface)",

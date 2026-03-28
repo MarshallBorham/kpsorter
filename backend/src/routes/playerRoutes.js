@@ -6,7 +6,7 @@ export const playerRouter = express.Router();
 
 const validStats = [
   "eFG", "TS", "OR", "DR", "ARate", "TO", "Blk", "Stl", "FTRate", "FT",
-  "2P", "3P", "Min", "Shots", "G", "ORTG", "DRTG", "Usg",
+  "2P", "3P", "Min", "G", "ORTG", "DRTG", "Usg",
   "FTA", "FTM", "2PM", "2PA", "3PM", "3PA",
   "FC40", "Close2PM", "Close2PA", "Close2P",
   "Far2PM", "Far2PA", "Far2P", "DunksAtt", "DunksMade", "DunkPct",
@@ -51,7 +51,6 @@ playerRouter.get("/", requireAuth, (req, res) => {
     return res.status(400).json({ error: "Duplicate stats are not allowed" });
   }
 
-  // Parse advanced filters
   let advancedFilters = [];
   if (filters) {
     try {
@@ -61,12 +60,10 @@ playerRouter.get("/", requireAuth, (req, res) => {
     }
   }
 
-  // Build pool — apply Min% filter first
   let pool = filterMin === "true"
     ? players.filter((p) => (p.stats.Min ?? 0) >= 15)
     : players;
 
-  // Apply advanced filters
   for (const f of advancedFilters) {
     const val = parseFloat(f.value);
     if (isNaN(val)) continue;
@@ -110,7 +107,6 @@ playerRouter.get("/", requireAuth, (req, res) => {
   res.json({ statList, results: ranked });
 });
 
-// GET /api/players/:playerId
 playerRouter.get("/:playerId", requireAuth, (req, res) => {
   const player = players.find((p) => p.id === req.params.playerId);
   if (!player) return res.status(404).json({ error: "Player not found" });
