@@ -117,11 +117,18 @@ export default function ResultsPage() {
                         <button
                           onClick={() => setModalPlayerId(player.id)}
                           style={{
-                            background: "none", border: "none", padding: 0,
-                            color: "var(--primary)", fontWeight: 600,
-                            cursor: "pointer", textDecoration: "underline",
-                            fontSize: "inherit", textAlign: "left",
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            color: "var(--primary)",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            textDecoration: "none",
+                            fontSize: "inherit",
+                            textAlign: "left",
                           }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = "var(--error)"}
+                          onMouseLeave={(e) => e.currentTarget.style.color = "var(--primary)"}
                         >
                           {player.name}
                         </button>

@@ -95,11 +95,18 @@ export default function WatchlistPage() {
                       <button
                         onClick={() => setModalPlayerId(entry.playerId)}
                         style={{
-                          background: "none", border: "none", padding: 0,
-                          color: "var(--primary)", fontWeight: 700,
-                          cursor: "pointer", textDecoration: "underline",
-                          fontSize: "1.1rem", textAlign: "left",
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          color: "var(--primary)",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          textDecoration: "none",
+                          fontSize: "1.1rem",
+                          textAlign: "left",
                         }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = "var(--error)"}
+                        onMouseLeave={(e) => e.currentTarget.style.color = "var(--primary)"}
                       >
                         {entry.name}
                       </button>
