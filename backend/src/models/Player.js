@@ -6,6 +6,8 @@ const playerSchema = new mongoose.Schema({
   team: String,
   year: String,
   position: String,
+  height: String,
+  heightInches: Number,
   stats: { type: Map, of: Number },
 });
 
