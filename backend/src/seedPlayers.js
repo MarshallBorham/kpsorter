@@ -12,7 +12,6 @@ console.log("Connected to MongoDB");
 await Player.deleteMany({});
 console.log("Cleared existing players");
 
-// Make all IDs unique by appending team to duplicates
 const seenIds = new Set();
 const docs = players.map((p) => {
   let id = p.id;
@@ -26,6 +25,8 @@ const docs = players.map((p) => {
     team: p.team,
     year: p.year,
     position: p.position,
+    height: p.height,
+    heightInches: p.heightInches,
     stats: p.stats,
   };
 });
@@ -37,7 +38,7 @@ for (let i = 0; i < docs.length; i += batchSize) {
   try {
     await Player.insertMany(batch, { ordered: false });
   } catch (err) {
-    // ordered: false means it inserts what it can, error just reports skipped
+    // ordered: false inserts what it can
   }
   inserted += batch.length;
   console.log(`Processed ${inserted}/${docs.length}`);

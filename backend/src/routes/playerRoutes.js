@@ -31,7 +31,7 @@ function calcPercentiles(stat, pool) {
 }
 
 playerRouter.get("/", requireAuth, async (req, res) => {
-  const { stats, filterMin, filters, classes } = req.query;
+  const { stats, filterMin, filters, classes, minHeight, maxHeight } = req.query;
 
   if (!stats) {
     return res.status(400).json({ error: "stats query param is required" });
@@ -69,13 +69,17 @@ playerRouter.get("/", requireAuth, async (req, res) => {
     if (isNaN(val)) continue;
     query[`stats.${f.stat}`] = f.type === "min" ? { $gte: val } : { $lte: val };
   }
-
-  // Class filter
   if (classes) {
     const classList = classes.split(",").map((c) => c.trim()).filter(Boolean);
-    if (classList.length > 0) {
-      query["year"] = { $in: classList };
-    }
+    if (classList.length > 0) query["year"] = { $in: classList };
+  }
+  if (minHeight) {
+    const min = parseInt(minHeight);
+    if (!isNaN(min)) query["heightInches"] = { ...query["heightInches"], $gte: min };
+  }
+  if (maxHeight) {
+    const max = parseInt(maxHeight);
+    if (!isNaN(max)) query["heightInches"] = { ...query["heightInches"], $lte: max };
   }
 
   try {
@@ -104,6 +108,7 @@ playerRouter.get("/", requireAuth, async (req, res) => {
           team: p.team,
           year: p.year,
           position: p.position,
+          height: p.height,
           statValues,
           statPcts,
           combined,
@@ -125,16 +130,4 @@ playerRouter.get("/", requireAuth, async (req, res) => {
     res.json({ statList, results: ranked });
   } catch (err) {
     console.error("Player search error:", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-playerRouter.get("/:playerId", requireAuth, async (req, res) => {
-  try {
-    const player = await Player.findOne({ id: req.params.playerId }).lean();
-    if (!player) return res.status(404).json({ error: "Player not found" });
-    res.json(player);
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
-  }
-});
+    res.status(50
