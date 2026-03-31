@@ -16,10 +16,15 @@ while (true) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Accept": "application/json",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "application/json, text/plain, */*",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
       "Referer": "https://verbalcommits.com/transfers",
       "Origin": "https://verbalcommits.com",
+      "pb": "tcdIJEr3eL4ZAzyH",
+      "dnt": "1",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
     },
     body: JSON.stringify({
       name: "",
