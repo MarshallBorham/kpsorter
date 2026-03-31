@@ -7,10 +7,56 @@ const MONGO_URI = getEnvVar("MONGODB_URI");
 await mongoose.connect(MONGO_URI);
 console.log("Connected to MongoDB");
 
-const BASE = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/2026/types/2";
+const delay = ms => new Promise(r => setTimeout(r, ms));
 
-// Fetch leaders for PPG, RPG, APG
-const leadersRes = await fetch(`${BASE}/leaders?limit=500`);
+// Step 1: Get all D1 teams
+console.log("Fetching all teams...");
+let allTeams = [];
+let page = 1;
+while (true) {
+  const res = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/2026/teams?limit=500&page=${page}`);
+  const data = await res.json();
+  const refs = data.items || [];
+  if (refs.length === 0) break;
+  allTeams = allTeams.concat(refs.map(r => {
+    const match = r["$ref"].match(/teams\/(\d+)/);
+    return match ? match[1] : null;
+  }).filter(Boolean));
+  if (allTeams.length >= data.count) break;
+  page++;
+}
+console.log(`Found ${allTeams.length} teams`);
+
+// Step 2: Get roster for each team, build espnId → { name, team } map
+console.log("Fetching rosters...");
+const espnPlayers = {};
+
+for (let i = 0; i < allTeams.length; i++) {
+  const teamId = allTeams[i];
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams/${teamId}/roster`);
+    const data = await res.json();
+    const teamName = data.team?.displayName || data.team?.name || "";
+
+    for (const athlete of data.athletes || []) {
+      const espnId = String(athlete.id);
+      const name = athlete.fullName || athlete.displayName || "";
+      if (espnId && name) {
+        espnPlayers[espnId] = { name, team: teamName };
+      }
+    }
+
+    if ((i + 1) % 50 === 0) console.log(`  Processed ${i + 1}/${allTeams.length} teams (${Object.keys(espnPlayers).length} players so far)...`);
+    await delay(50);
+  } catch (err) {
+    console.error(`Failed to fetch roster for team ${teamId}:`, err.message);
+  }
+}
+console.log(`Total players found across all rosters: ${Object.keys(espnPlayers).length}`);
+
+// Step 3: Fetch PPG/RPG/APG stats from leaders endpoint
+console.log("Fetching leaders (PPG, RPG, APG)...");
+const leadersRes = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/2026/types/2/leaders?limit=1000`);
 const leadersData = await leadersRes.json();
 
 const STAT_MAP = {
@@ -19,54 +65,29 @@ const STAT_MAP = {
   assistsPerGame:  "APG",
 };
 
-// Extract athlete ID → stat value for each category
-const athleteStats = {}; // { espnId: { PPG: 12.3, RPG: 5.1 } }
+const athleteStatMap = {};
 
 for (const category of leadersData.categories) {
   const statKey = STAT_MAP[category.name];
   if (!statKey) continue;
-
-  console.log(`Processing ${category.name} (${category.leaders.length} leaders)...`);
-
+  console.log(`  ${category.name}: ${category.leaders.length} leaders`);
   for (const leader of category.leaders) {
     const ref = leader.athlete?.["$ref"];
     if (!ref) continue;
     const match = ref.match(/athletes\/(\d+)/);
     if (!match) continue;
     const espnId = match[1];
-
-    if (!athleteStats[espnId]) athleteStats[espnId] = {};
-    athleteStats[espnId][statKey] = leader.value;
+    if (!athleteStatMap[espnId]) athleteStatMap[espnId] = {};
+    athleteStatMap[espnId][statKey] = leader.value;
   }
 }
 
-const uniqueIds = Object.keys(athleteStats);
-console.log(`Fetching ${uniqueIds.length} unique athletes from ESPN...`);
+// Step 4: Load DB players for matching
+console.log("Loading database players for matching...");
+const allDbPlayers = await Player.find({}, "name team _id").lean();
+console.log(`Loaded ${allDbPlayers.length} players from database`);
 
-// Fetch each athlete to get name + team
-const espnAthletes = {}; // { espnId: { name, team } }
-
-for (let i = 0; i < uniqueIds.length; i++) {
-  const espnId = uniqueIds[i];
-  try {
-    const res = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/2026/athletes/${espnId}?lang=en&region=us`);
-    const data = await res.json();
-    const name = data.fullName || data.displayName || "";
-    const team = data.team?.displayName || data.team?.shortDisplayName || "";
-    espnAthletes[espnId] = { name, team };
-
-    if ((i + 1) % 50 === 0) console.log(`  Fetched ${i + 1}/${uniqueIds.length}...`);
-
-    // Small delay to avoid rate limiting
-    await new Promise(r => setTimeout(r, 50));
-  } catch (err) {
-    console.error(`Failed to fetch athlete ${espnId}:`, err.message);
-  }
-}
-
-console.log(`Done fetching athletes. Now matching against database...`);
-
-// Fuzzy matching helpers (same as syncPortal.js)
+// Fuzzy matching helpers
 function editDistance(a, b) {
   a = a.toLowerCase();
   b = b.toLowerCase();
@@ -102,84 +123,132 @@ function schoolMatches(a, b) {
   return editDistance(normalizeSchool(a), normalizeSchool(b)) <= 3;
 }
 
-const allDbPlayers = await Player.find({}, "name team _id").lean();
-console.log(`Loaded ${allDbPlayers.length} players from database`);
+function findDbPlayer(espnName, espnTeam) {
+  // Exact name + team
+  let player = allDbPlayers.find(p => p.name === espnName && p.team === espnTeam);
+  if (player) return { player, fuzzy: false };
+
+  // Exact name only
+  player = allDbPlayers.find(p => p.name === espnName);
+  if (player) return { player, fuzzy: false };
+
+  // Fuzzy — skip entirely if we don't have a team to validate against
+  if (!espnTeam || espnTeam.trim() === "") return null;
+
+  const espnFirst = normalizeName(espnName.split(" ")[0] || "");
+  const espnLast = normalizeName(espnName.split(" ").slice(1).join(" ") || "");
+  const espnSchool = normalizeName(espnTeam || "");
+
+  let bestMatch = null;
+  let bestDistance = Infinity;
+
+  for (const dbPlayer of allDbPlayers) {
+    const parts = dbPlayer.name.split(" ");
+    const dbFirst = normalizeName(parts[0] || "");
+    const dbLast = normalizeName(parts.slice(1).join(" ") || "");
+    const dbSchool = normalizeName(dbPlayer.team || "");
+
+    // Require first two letters of first name to match
+    if (!espnFirst || !dbFirst || espnFirst.slice(0, 2) !== dbFirst.slice(0, 2)) continue;
+
+    // School must match closely
+    if (!schoolMatches(espnSchool, dbSchool)) continue;
+
+    // Fuzzy last name — max 1 edit
+    const lastDist = editDistance(espnLast, dbLast);
+    if (lastDist < bestDistance && lastDist <= 1) {
+      bestDistance = lastDist;
+      bestMatch = dbPlayer;
+    }
+  }
+
+  if (bestMatch) return { player: bestMatch, fuzzy: true };
+  return null;
+}
+
+console.log("Matching and updating players...");
 
 let matched = 0;
 let fuzzyMatched = 0;
 let unmatched = 0;
-const unmatchedNames = [];
+let noStats = 0;
+const processedDbIds = new Set();
 
-for (const espnId of uniqueIds) {
-  const espn = espnAthletes[espnId];
-  if (!espn || !espn.name) continue;
+const rosterIds = Object.keys(espnPlayers);
+console.log(`Processing ${rosterIds.length} roster players...`);
 
-  const stats = athleteStats[espnId];
+for (let i = 0; i < rosterIds.length; i++) {
+  const espnId = rosterIds[i];
+  const espn = espnPlayers[espnId];
 
-  // 1. Exact match — name + team
-  let player = await Player.findOne({ name: espn.name, team: espn.team });
-
-  // 2. Exact match — name only
-  if (!player) {
-    player = await Player.findOne({ name: espn.name });
-  }
-
-  // 3. Fuzzy match — same first initial, fuzzy last name, similar school
-  if (!player) {
-    let bestMatch = null;
-    let bestDistance = Infinity;
-
-    const espnFirst = normalizeName(espn.name.split(" ")[0] || "");
-    const espnLast = normalizeName(espn.name.split(" ").slice(1).join(" ") || "");
-    const espnSchool = normalizeName(espn.team || "");
-
-    for (const dbPlayer of allDbPlayers) {
-      const parts = dbPlayer.name.split(" ");
-      const dbFirst = normalizeName(parts[0] || "");
-      const dbLast = normalizeName(parts.slice(1).join(" ") || "");
-      const dbSchool = normalizeName(dbPlayer.team || "");
-
-      if (!espnFirst || !dbFirst || espnFirst[0] !== dbFirst[0]) continue;
-      if (!schoolMatches(espnSchool, dbSchool)) continue;
-
-      const lastDist = editDistance(espnLast, dbLast);
-      if (lastDist < bestDistance && lastDist <= 2) {
-        bestDistance = lastDist;
-        bestMatch = dbPlayer;
-      }
-    }
-
-    if (bestMatch) {
-      player = bestMatch;
-      fuzzyMatched++;
-      console.log(`Fuzzy match: "${espn.name}" (${espn.team}) → "${bestMatch.name}" (${bestMatch.team})`);
-    }
-  }
-
-  if (player) {
-    // Build update object for only the stats we have
-    const update = {};
-    for (const [statKey, value] of Object.entries(stats)) {
-      update[`stats.${statKey}`] = value;
-    }
-    await Player.updateOne({ _id: player._id }, { $set: update });
-    matched++;
-  } else {
+  const result = findDbPlayer(espn.name, espn.team);
+  if (!result) {
     unmatched++;
-    unmatchedNames.push(`${espn.name} (${espn.team})`);
+    continue;
+  }
+
+  const { player, fuzzy } = result;
+
+  if (processedDbIds.has(String(player._id))) continue;
+  processedDbIds.add(String(player._id));
+
+  // Get stats from leaders map or fetch individually
+  let stats = athleteStatMap[espnId];
+
+  if (!stats) {
+    try {
+      const res = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/2026/types/2/athletes/${espnId}/statistics/0`);
+      const data = await res.json();
+
+      const splits = data.splits?.categories || [];
+      const statEntry = {};
+
+      for (const cat of splits) {
+        for (const stat of cat.stats || []) {
+          if (stat.abbreviation === "PPG" || stat.name === "pointsPerGame") statEntry.PPG = stat.value;
+          if (stat.abbreviation === "RPG" || stat.name === "reboundsPerGame") statEntry.RPG = stat.value;
+          if (stat.abbreviation === "APG" || stat.name === "assistsPerGame") statEntry.APG = stat.value;
+        }
+      }
+
+      if (Object.keys(statEntry).length > 0) {
+        stats = statEntry;
+      }
+      await delay(30);
+    } catch {
+      // silently skip
+    }
+  }
+
+  if (!stats || Object.keys(stats).length === 0) {
+    noStats++;
+    continue;
+  }
+
+  const update = {};
+  for (const [key, value] of Object.entries(stats)) {
+    update[`stats.${key}`] = value;
+  }
+
+  await Player.updateOne({ _id: player._id }, { $set: update });
+
+  if (fuzzy) {
+    fuzzyMatched++;
+    if (fuzzyMatched <= 30) console.log(`Fuzzy: "${espn.name}" (${espn.team}) → "${player.name}" (${player.team})`);
+  }
+  matched++;
+
+  if ((matched + unmatched) % 200 === 0) {
+    console.log(`  Progress: ${matched} matched, ${unmatched} unmatched, ${noStats} no stats...`);
   }
 }
 
 console.log(`\nResults:`);
 console.log(`  Exact matched: ${matched - fuzzyMatched}`);
 console.log(`  Fuzzy matched: ${fuzzyMatched}`);
-console.log(`  Unmatched: ${unmatched}`);
-console.log(`  Total matched: ${matched}`);
-
-if (unmatchedNames.length > 0 && unmatchedNames.length <= 30) {
-  console.log(`\nUnmatched players:`);
-  unmatchedNames.forEach(n => console.log(`  - ${n}`));
-}
+console.log(`  Unmatched (not in our DB): ${unmatched}`);
+console.log(`  Matched but no stats found: ${noStats}`);
+console.log(`  Total updated: ${matched}`);
 
 await mongoose.disconnect();
 console.log("\nDone");
