@@ -84,7 +84,7 @@ function addStatOptions(builder, count, required = false) {
 const searchCommand = new SlashCommandBuilder()
   .setName("search")
   .setDescription("Find top players by stat percentile");
-addStatOptions(searchCommand, 37, true);
+addStatOptions(searchCommand, 15, true);
 searchCommand
   .addIntegerOption(opt =>
     opt.setName("limit")
@@ -108,7 +108,7 @@ const saveCommand = new SlashCommandBuilder()
     opt.setName("name")
       .setDescription("Player name")
       .setRequired(true));
-addStatOptions(saveCommand, 6, true);
+addStatOptions(saveCommand, 15, true);
 
 const commands = [
   searchCommand,
