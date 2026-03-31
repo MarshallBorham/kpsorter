@@ -69,7 +69,6 @@ function formatVal(stat, val) {
   return val.toFixed(1);
 }
 
-// Build stat options for a command (up to 6)
 function addStatOptions(builder, count, required = false) {
   for (let i = 1; i <= count; i++) {
     builder.addStringOption(opt =>
@@ -233,6 +232,11 @@ export async function startBot() {
           return;
         }
 
+        if (statList.length === 0) {
+          await interaction.editReply("❌ Please provide at least one stat.");
+          return;
+        }
+
         const query = {};
         if (filterMin) query["stats.Min"] = { $gte: 15 };
         if (portalOnly) query["inPortal"] = true;
@@ -242,6 +246,11 @@ export async function startBot() {
         }
 
         const pool = await Player.find(query).lean();
+
+        if (pool.length === 0) {
+          await interaction.editReply("❌ No players found matching your filters.");
+          return;
+        }
 
         const percentileFns = {};
         for (const s of statList) {
@@ -275,17 +284,23 @@ export async function startBot() {
           })
           .slice(0, limit);
 
+        if (ranked.length === 0) {
+          await interaction.editReply("❌ No players found matching your filters.");
+          return;
+        }
+
+        const description = ranked.map((p, i) =>
+          `**${i + 1}. ${p.name} — ${p.team} · ${p.year}**\n` +
+          statList.map(s => `${s}: ${formatVal(s, p.statValues[s])} (${p.statPcts[s]}th)`).join(" · ") +
+          ` · Combined: **${p.combined}**`
+        ).join("\n\n");
+
         const embed = new EmbedBuilder()
           .setTitle(`🏀 Top Players: ${statList.join(" + ")}`)
           .setColor(0x0052cc)
-          .setDescription(
-            ranked.map((p, i) =>
-              `**${i + 1}. ${p.name} — ${p.team} · ${p.year}**\n` +
-              statList.map(s => `${s}: ${formatVal(s, p.statValues[s])} (${p.statPcts[s]}th)`).join(" · ") +
-              ` · Combined: **${p.combined}**`
-            ).join("\n\n")
-          )
+          .setDescription(description)
           .setFooter({ text: `Top ${limit} · Min%${filterMin ? " ≥15%" : " unfiltered"}${portalOnly ? " · Portal only" : ""}${classFilter ? ` · Class: ${classFilter}` : ""}` });
+
         await interaction.editReply({ embeds: [embed] });
       }
 
@@ -336,22 +351,22 @@ export async function startBot() {
           return;
         }
 
+        const description = entries.map((e, i) => {
+          const statStr = e.stats.map(s => {
+            const val = e.statValues?.get ? e.statValues.get(s) : e.statValues?.[s];
+            const pct = e.statPcts?.get ? e.statPcts.get(s) : e.statPcts?.[s];
+            if (val !== undefined && pct !== undefined) {
+              return `${s}: ${formatVal(s, val)} (${pct}th)`;
+            }
+            return s;
+          }).join(", ");
+          return `**${i + 1}. ${e.playerName} — ${e.playerTeam}**\nStats: ${statStr}`;
+        }).join("\n\n");
+
         const embed = new EmbedBuilder()
           .setTitle(`📋 ${interaction.user.username}'s Watchlist`)
           .setColor(0x0052cc)
-          .setDescription(
-            entries.map((e, i) => {
-              const statStr = e.stats.map(s => {
-                const val = e.statValues?.get ? e.statValues.get(s) : e.statValues?.[s];
-                const pct = e.statPcts?.get ? e.statPcts.get(s) : e.statPcts?.[s];
-                if (val !== undefined && pct !== undefined) {
-                  return `${s}: ${formatVal(s, val)} (${pct}th)`;
-                }
-                return s;
-              }).join(", ");
-              return `**${i + 1}. ${e.playerName} — ${e.playerTeam}**\nStats: ${statStr}`;
-            }).join("\n\n")
-          );
+          .setDescription(description);
 
         await interaction.editReply({ embeds: [embed] });
       }
@@ -381,7 +396,6 @@ export async function startBot() {
           return;
         }
 
-        // Calculate percentiles for the saved stats
         const pool = await Player.find({ "stats.Min": { $gte: 15 } }).lean();
         const statValues = {};
         const statPcts = {};
@@ -460,6 +474,12 @@ export async function startBot() {
         );
 
         const valid = top.filter(Boolean);
+
+        if (valid.length === 0) {
+          await interaction.editReply("No players have been saved yet.");
+          return;
+        }
+
         const embed = new EmbedBuilder()
           .setTitle("🔥 Most Saved Players")
           .setColor(0xff6b35)
