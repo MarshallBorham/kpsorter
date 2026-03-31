@@ -89,6 +89,26 @@ function normalizeName(name) {
   return name.toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim();
 }
 
+function normalizeSchool(name) {
+  return name.toLowerCase()
+    .replace(/[^a-z\s]/g, "")
+    .replace(/\bst\b/g, "state")
+    .replace(/\bno\b/g, "north")
+    .replace(/\buniv\b/g, "university")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function schoolMatches(a, b) {
+  // Direct edit distance
+  if (editDistance(a, b) <= 3) return true;
+  // Abbreviation check — e.g. "uncg" inside "unc greensboro"
+  if (a.length <= 6 && b.replace(/\s/g, "").includes(a.replace(/\s/g, ""))) return true;
+  if (b.length <= 6 && a.replace(/\s/g, "").includes(b.replace(/\s/g, ""))) return true;
+  // Normalized comparison
+  return editDistance(normalizeSchool(a), normalizeSchool(b)) <= 3;
+}
+
 const allDbPlayers = await Player.find({}, "name team _id").lean();
 console.log(`Loaded ${allDbPlayers.length} players from database`);
 
@@ -130,9 +150,8 @@ for (const p of allPlayers) {
       // First name must start with same letter
       if (!portalFirst || !dbFirst || portalFirst[0] !== dbFirst[0]) continue;
 
-      // School must match closely
-      const schoolDist = editDistance(portalSchool, dbSchool);
-      if (schoolDist > 3) continue;
+      // School must match
+      if (!schoolMatches(portalSchool, dbSchool)) continue;
 
       // Fuzzy match on last name
       const lastDist = editDistance(portalLast, dbLast);
