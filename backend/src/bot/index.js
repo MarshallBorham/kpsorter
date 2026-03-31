@@ -1,18 +1,49 @@
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } from "discord.js";
-import mongoose from "mongoose";
 import { Player } from "../models/Player.js";
 import { User } from "../models/User.js";
 import { BotWatchlist } from "../models/BotWatchlist.js";
 
 const VALID_STATS = [
-  "eFG", "TS", "OR", "DR", "ARate", "TO", "Blk", "Stl", "FTRate", "FT",
-  "2P", "3P", "Min", "G", "ORTG", "DRTG", "Usg",
-  "FTA", "FTM", "2PM", "2PA", "3PM", "3PA",
-  "FC40", "Close2PM", "Close2PA", "Close2P",
-  "Far2PM", "Far2PA", "Far2P", "DunksAtt", "DunksMade", "DunkPct",
-  "BPM", "OBPM", "DBPM", "3P100",
+  { value: "eFG",      name: "Effective FG%" },
+  { value: "TS",       name: "True Shooting %" },
+  { value: "OR",       name: "Offensive Rebound %" },
+  { value: "DR",       name: "Defensive Rebound %" },
+  { value: "ARate",    name: "Assist Rate" },
+  { value: "TO",       name: "Turnover %" },
+  { value: "Blk",      name: "Block %" },
+  { value: "Stl",      name: "Steal %" },
+  { value: "FTRate",   name: "Free Throw Rate %" },
+  { value: "FT",       name: "FT%" },
+  { value: "2P",       name: "2P%" },
+  { value: "3P",       name: "3P%" },
+  { value: "Min",      name: "Minute %" },
+  { value: "G",        name: "Games Played" },
+  { value: "ORTG",     name: "Offensive Rating" },
+  { value: "DRTG",     name: "Defensive Rating" },
+  { value: "Usg",      name: "Usage %" },
+  { value: "FTA",      name: "FTA" },
+  { value: "FTM",      name: "FTM" },
+  { value: "2PM",      name: "2PM" },
+  { value: "2PA",      name: "2PA" },
+  { value: "3PM",      name: "3PM" },
+  { value: "3PA",      name: "3PA" },
+  { value: "FC40",     name: "Fouls Committed per 40" },
+  { value: "Close2PM", name: "Close 2PM" },
+  { value: "Close2PA", name: "Close 2PA" },
+  { value: "Close2P",  name: "Close 2P%" },
+  { value: "Far2PM",   name: "Far 2PM" },
+  { value: "Far2PA",   name: "Far 2PA" },
+  { value: "Far2P",    name: "Far 2P%" },
+  { value: "DunksAtt", name: "Dunks Attempted" },
+  { value: "DunksMade",name: "Dunks Made" },
+  { value: "DunkPct",  name: "Dunk Make %" },
+  { value: "BPM",      name: "BPM" },
+  { value: "OBPM",     name: "OBPM" },
+  { value: "DBPM",     name: "DBPM" },
+  { value: "3P100",    name: "3P/100" },
 ];
 
+const VALID_STAT_VALUES = VALID_STATS.map(s => s.value);
 const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
 
 function calcPercentiles(stat, pool) {
@@ -43,9 +74,20 @@ const commands = [
     .setName("search")
     .setDescription("Find top players by stat percentile")
     .addStringOption(opt =>
-      opt.setName("stats")
-        .setDescription("Comma-separated stats e.g. eFG,ARate,BPM")
-        .setRequired(true))
+      opt.setName("stat1")
+        .setDescription("First stat to search by")
+        .setRequired(true)
+        .setAutocomplete(true))
+    .addStringOption(opt =>
+      opt.setName("stat2")
+        .setDescription("Second stat to search by")
+        .setRequired(false)
+        .setAutocomplete(true))
+    .addStringOption(opt =>
+      opt.setName("stat3")
+        .setDescription("Third stat to search by")
+        .setRequired(false)
+        .setAutocomplete(true))
     .addBooleanOption(opt =>
       opt.setName("portal_only")
         .setDescription("Only show players in the transfer portal")
@@ -75,9 +117,20 @@ const commands = [
         .setDescription("Player name")
         .setRequired(true))
     .addStringOption(opt =>
-      opt.setName("stats")
-        .setDescription("Stats you found them under e.g. eFG,ARate")
-        .setRequired(true)),
+      opt.setName("stat1")
+        .setDescription("First stat")
+        .setRequired(true)
+        .setAutocomplete(true))
+    .addStringOption(opt =>
+      opt.setName("stat2")
+        .setDescription("Second stat")
+        .setRequired(false)
+        .setAutocomplete(true))
+    .addStringOption(opt =>
+      opt.setName("stat3")
+        .setDescription("Third stat")
+        .setRequired(false)
+        .setAutocomplete(true)),
 
   new SlashCommandBuilder()
     .setName("remove")
@@ -107,7 +160,6 @@ export async function startBot() {
 
   client.once("ready", async () => {
     console.log(`Discord bot logged in as ${client.user.tag}`);
-
     const rest = new REST({ version: "10" }).setToken(token);
     try {
       await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
@@ -118,6 +170,21 @@ export async function startBot() {
   });
 
   client.on("interactionCreate", async (interaction) => {
+    // Handle autocomplete
+    if (interaction.isAutocomplete()) {
+      const focused = interaction.options.getFocused().toLowerCase();
+      const filtered = VALID_STATS
+        .filter(s =>
+          s.value.toLowerCase().includes(focused) ||
+          s.name.toLowerCase().includes(focused)
+        )
+        .slice(0, 25)
+        .map(s => ({ name: `${s.name} (${s.value})`, value: s.value }));
+
+      await interaction.respond(filtered);
+      return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const { commandName } = interaction;
@@ -126,14 +193,16 @@ export async function startBot() {
       if (commandName === "search") {
         await interaction.deferReply();
 
-        const statsInput = interaction.options.getString("stats");
+        const stat1 = interaction.options.getString("stat1");
+        const stat2 = interaction.options.getString("stat2");
+        const stat3 = interaction.options.getString("stat3");
         const portalOnly = interaction.options.getBoolean("portal_only") ?? false;
         const filterMin = interaction.options.getBoolean("filter_min") ?? true;
 
-        const statList = statsInput.split(",").map(s => s.trim());
-        const invalid = statList.filter(s => !VALID_STATS.includes(s));
+        const statList = [stat1, stat2, stat3].filter(Boolean);
+        const invalid = statList.filter(s => !VALID_STAT_VALUES.includes(s));
         if (invalid.length > 0) {
-          await interaction.editReply(`❌ Invalid stats: ${invalid.join(", ")}\nUse /stats to see valid options.`);
+          await interaction.editReply(`❌ Invalid stats: ${invalid.join(", ")}`);
           return;
         }
 
@@ -159,7 +228,7 @@ export async function startBot() {
             statPcts[s] = pct;
             combined += pct;
           }
-          return { id: p.id, name: p.name, team: p.team, year: p.year, position: p.position, statValues, statPcts, combined };
+          return { id: p.id, name: p.name, team: p.team, year: p.year, statValues, statPcts, combined };
         }).sort((a, b) => b.combined - a.combined).slice(0, 10);
 
         const embed = new EmbedBuilder()
@@ -172,7 +241,7 @@ export async function startBot() {
               ` · Combined: **${p.combined}**`
             ).join("\n\n")
           )
-          .setFooter({ text: `Showing top 10 · Min%${filterMin ? " ≥15%" : " unfiltered"}${portalOnly ? " · Portal only" : ""}` });
+          .setFooter({ text: `Top 10 · Min%${filterMin ? " ≥15%" : " unfiltered"}${portalOnly ? " · Portal only" : ""}` });
 
         await interaction.editReply({ embeds: [embed] });
       }
@@ -240,8 +309,10 @@ export async function startBot() {
         await interaction.deferReply({ ephemeral: true });
 
         const name = interaction.options.getString("name");
-        const statsInput = interaction.options.getString("stats");
-        const statList = statsInput.split(",").map(s => s.trim());
+        const stat1 = interaction.options.getString("stat1");
+        const stat2 = interaction.options.getString("stat2");
+        const stat3 = interaction.options.getString("stat3");
+        const statList = [stat1, stat2, stat3].filter(Boolean);
 
         const player = await Player.findOne({
           name: { $regex: name, $options: "i" }
@@ -319,12 +390,11 @@ export async function startBot() {
             .slice(0, 5)
             .map(async ([playerId]) => {
               const player = await Player.findOne({ id: playerId }).lean();
-              return player ? player : null;
+              return player || null;
             })
         );
 
         const valid = top.filter(Boolean);
-
         const embed = new EmbedBuilder()
           .setTitle("🔥 Most Saved Players")
           .setColor(0xff6b35)
@@ -339,7 +409,7 @@ export async function startBot() {
         const embed = new EmbedBuilder()
           .setTitle("📊 Available Stats")
           .setColor(0x0052cc)
-          .setDescription(VALID_STATS.join(", "));
+          .setDescription(VALID_STATS.map(s => `**${s.value}** — ${s.name}`).join("\n"));
 
         await interaction.reply({ embeds: [embed], ephemeral: true });
       }
