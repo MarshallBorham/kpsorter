@@ -48,6 +48,7 @@ export default function HomePage() {
   const navigate = useNavigate();
   const [selectedStats, setSelectedStats] = useState(["eFG", "ARate"]);
   const [filterMin, setFilterMin] = useState(true);
+  const [portalOnly, setPortalOnly] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState([
     { stat: "G", type: "min", value: "" },
@@ -128,8 +129,10 @@ export default function HomePage() {
       ? `&classes=${selectedClasses.join(",")}`
       : "";
 
+    const portalParam = portalOnly ? "&portalOnly=true" : "";
+
     navigate(
-      `/results?stats=${selectedStats.join(",")}&filterMin=${filterMin}${filtersParam ? `&filters=${filtersParam}` : ""}${classesParam}`
+      `/results?stats=${selectedStats.join(",")}&filterMin=${filterMin}${filtersParam ? `&filters=${filtersParam}` : ""}${classesParam}${portalParam}`
     );
   }
 
@@ -205,7 +208,7 @@ export default function HomePage() {
               Find Players
             </button>
 
-            <div className="form-group" style={{ marginBottom: "1rem" }}>
+            <div className="form-group" style={{ marginBottom: "0.75rem" }}>
               <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
                 <input
                   type="checkbox"
@@ -213,6 +216,17 @@ export default function HomePage() {
                   onChange={(e) => setFilterMin(e.target.checked)}
                 />
                 Only show players with Min% ≥ 15%
+              </label>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: "1rem" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={portalOnly}
+                  onChange={(e) => setPortalOnly(e.target.checked)}
+                />
+                Only show players currently in the Transfer Portal
               </label>
             </div>
 

@@ -30,7 +30,7 @@ function calcPercentiles(stat, pool) {
 }
 
 playerRouter.get("/", async (req, res) => {
-  const { stats, filterMin, filters, classes, minHeight, maxHeight } = req.query;
+  const { stats, filterMin, filters, classes, minHeight, maxHeight, portalOnly } = req.query;
 
   if (!stats) {
     return res.status(400).json({ error: "stats query param is required" });
@@ -82,6 +82,9 @@ playerRouter.get("/", async (req, res) => {
     const val = parseInt(maxHeight);
     if (!isNaN(val)) query["heightInches"] = { ...query["heightInches"], $lte: val };
   }
+  if (portalOnly === "true") {
+    query["inPortal"] = true;
+  }
 
   try {
     const pool = await Player.find(query).lean();
@@ -110,6 +113,7 @@ playerRouter.get("/", async (req, res) => {
           year: p.year,
           position: p.position,
           height: p.height,
+          inPortal: p.inPortal,
           statValues,
           statPcts,
           combined,

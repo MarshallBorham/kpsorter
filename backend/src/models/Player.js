@@ -8,6 +8,7 @@ const playerSchema = new mongoose.Schema({
   position: String,
   height: String,
   heightInches: Number,
+  inPortal: { type: Boolean, default: false },
   stats: { type: Map, of: Number },
 });
 

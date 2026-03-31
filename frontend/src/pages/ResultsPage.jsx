@@ -20,6 +20,7 @@ export default function ResultsPage() {
   const filterMin = searchParams.get("filterMin");
   const filtersParam = searchParams.get("filters");
   const classesParam = searchParams.get("classes");
+  const portalOnly = searchParams.get("portalOnly");
   const statList = statsParam ? statsParam.split(",") : [];
   const activeFilters = filtersParam ? JSON.parse(decodeURIComponent(filtersParam)) : [];
 
@@ -37,7 +38,7 @@ export default function ResultsPage() {
       setError("");
       try {
         const res = await fetch(
-          `/api/players?stats=${statsParam}&filterMin=${filterMin}${filtersParam ? `&filters=${filtersParam}` : ""}${classesParam ? `&classes=${classesParam}` : ""}`
+          `/api/players?stats=${statsParam}&filterMin=${filterMin}${filtersParam ? `&filters=${filtersParam}` : ""}${classesParam ? `&classes=${classesParam}` : ""}${portalOnly === "true" ? "&portalOnly=true" : ""}`
         );
         const data = await res.json();
         if (!res.ok) { setError(data.error || "Failed to fetch players"); return; }
@@ -49,7 +50,7 @@ export default function ResultsPage() {
       }
     }
     fetchPlayers();
-  }, [statsParam, filterMin, filtersParam, classesParam]);
+  }, [statsParam, filterMin, filtersParam, classesParam, portalOnly]);
 
   async function handleSave(player) {
     setSaving(player.id);
@@ -72,6 +73,7 @@ export default function ResultsPage() {
 
   const filterSummary = [
     filterMin === "true" ? "Min% ≥ 15%" : null,
+    portalOnly === "true" ? "In Transfer Portal" : null,
     classesParam ? `Class: ${classesParam}` : null,
     ...activeFilters
       .filter((f) => f.value !== "")
