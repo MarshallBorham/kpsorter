@@ -112,23 +112,29 @@ for (const p of allPlayers) {
     player = await Player.findOne({ name: fullName });
   }
 
-  // 3. Fuzzy match — same first initial, fuzzy last name
+  // 3. Fuzzy match — same first initial, fuzzy last name, similar school
   if (!player) {
     let bestMatch = null;
     let bestDistance = Infinity;
 
     const portalFirst = normalizeName(p.playerFirstName || "");
     const portalLast = normalizeName(p.playerLastName || "");
+    const portalSchool = normalizeName(school || "");
 
     for (const dbPlayer of allDbPlayers) {
       const parts = dbPlayer.name.split(" ");
       const dbFirst = normalizeName(parts[0] || "");
       const dbLast = normalizeName(parts.slice(1).join(" ") || "");
+      const dbSchool = normalizeName(dbPlayer.team || "");
 
       // First name must start with same letter
       if (!portalFirst || !dbFirst || portalFirst[0] !== dbFirst[0]) continue;
 
-      // Fuzzy match on last name only
+      // School must match closely
+      const schoolDist = editDistance(portalSchool, dbSchool);
+      if (schoolDist > 3) continue;
+
+      // Fuzzy match on last name
       const lastDist = editDistance(portalLast, dbLast);
       if (lastDist < bestDistance && lastDist <= 2) {
         bestDistance = lastDist;
@@ -139,7 +145,7 @@ for (const p of allPlayers) {
     if (bestMatch) {
       player = bestMatch;
       fuzzyMatched++;
-      console.log(`Fuzzy match: "${fullName}" → "${bestMatch.name}" (dist: ${bestDistance})`);
+      console.log(`Fuzzy match: "${fullName}" (${school}) → "${bestMatch.name}" (${bestMatch.team}) (dist: ${bestDistance})`);
     }
   }
 
