@@ -9,13 +9,9 @@ const ALLOWED_GUILDS = new Set([
 ]);
 
 const VALID_STATS = [
-  { value: "PPG", name: "Points Per Game" },
-  { value: "RPG", name: "Rebounds Per Game" },
-  { value: "APG", name: "Assists Per Game" },
-  { value: "BPM",      name: "BPM" },
-  { value: "OBPM",     name: "OBPM" },
-  { value: "DBPM",     name: "DBPM" },
-  { value: "3P100",    name: "3P/100" },
+  { value: "PPG",      name: "Points Per Game" },
+  { value: "RPG",      name: "Rebounds Per Game" },
+  { value: "APG",      name: "Assists Per Game" },
   { value: "eFG",      name: "Effective FG%" },
   { value: "TS",       name: "True Shooting %" },
   { value: "OR",       name: "Offensive Rebound %" },
@@ -49,6 +45,10 @@ const VALID_STATS = [
   { value: "DunksAtt", name: "Dunks Attempted" },
   { value: "DunksMade",name: "Dunks Made" },
   { value: "DunkPct",  name: "Dunk Make %" },
+  { value: "BPM",      name: "BPM" },
+  { value: "OBPM",     name: "OBPM" },
+  { value: "DBPM",     name: "DBPM" },
+  { value: "3P100",    name: "3P/100" },
 ];
 
 const VALID_STAT_VALUES = VALID_STATS.map(s => s.value);
@@ -313,7 +313,7 @@ export async function startBot() {
 
         const description = ranked.map((p, i) =>
           `**${i + 1}. ${p.name} — ${p.team} · ${p.year}**\n` +
-          statList.map(s => `${s}: ${formatVal(s, p.statValues[s])} (${p.statPcts[s]}th %)`).join(" · ") +
+          statList.map(s => `${s}: ${formatVal(s, p.statValues[s])} (${p.statPcts[s]}th)`).join(" · ") +
           ` · Combined: **${p.combined}**`
         ).join("\n\n");
 
@@ -339,7 +339,8 @@ export async function startBot() {
           return;
         }
 
-        const  keyStats = ["Min", "PPG", "RPG", "APG",  "ORTG", "DRTG", "eFG", "TS", "OR", "DR", "ARate", "TO", "BPM", "OBPM", "DBPM"];
+        const keyStats = ["Min", "ORTG", "DRTG", "eFG", "TS", "OR", "DR", "ARate", "TO", "BPM", "OBPM", "DBPM"];
+
         const embed = new EmbedBuilder()
           .setTitle(`🏀 ${player.name}`)
           .setColor(0x0052cc)
@@ -349,6 +350,9 @@ export async function startBot() {
             { name: "Year", value: player.year || "—", inline: true },
             { name: "Height", value: player.height || "—", inline: true },
             { name: "In Portal", value: player.inPortal ? "✅ Yes" : "No", inline: true },
+            { name: "PPG", value: player.stats?.PPG != null ? player.stats.PPG.toFixed(1) : "—", inline: true },
+            { name: "RPG", value: player.stats?.RPG != null ? player.stats.RPG.toFixed(1) : "—", inline: true },
+            { name: "APG", value: player.stats?.APG != null ? player.stats.APG.toFixed(1) : "—", inline: true },
             {
               name: "Key Stats",
               value: keyStats
@@ -378,7 +382,7 @@ export async function startBot() {
             const val = e.statValues?.get ? e.statValues.get(s) : e.statValues?.[s];
             const pct = e.statPcts?.get ? e.statPcts.get(s) : e.statPcts?.[s];
             if (val !== undefined && pct !== undefined) {
-              return `${s}: ${formatVal(s, val)} (${pct}th %)`;
+              return `${s}: ${formatVal(s, val)} (${pct}th)`;
             }
             return s;
           }).join(", ");
@@ -439,7 +443,7 @@ export async function startBot() {
         });
 
         const statStr = statList.map(s =>
-          `${s}: ${formatVal(s, statValues[s])} (${statPcts[s]}th %)`
+          `${s}: ${formatVal(s, statValues[s])} (${statPcts[s]}th)`
         ).join(", ");
 
         await interaction.editReply(`✅ Saved **${player.name}** (${player.team})\nStats: ${statStr}`);
