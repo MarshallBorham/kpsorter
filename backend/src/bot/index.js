@@ -5,7 +5,6 @@ import { BotWatchlist } from "../models/BotWatchlist.js";
 
 const ALLOWED_GUILDS = new Set([
   "800261752540364840",
-  "1488889811942248628",
   "1181335653703749783"
 ]);
 
@@ -94,7 +93,7 @@ function formatVal(stat, val) {
 }
 
 function buildPlayerEmbed(player, sharedBy = null) {
-  const keyStats = ["PPG", "RPG", "APG", "Min", "ORTG", "DRTG", "eFG", "TS", "OR", "DR", "ARate", "TO", "BPM", "OBPM", "DBPM"];
+  const keyStats = ["PPG", "RPG", "APG", "Min", "ORTG", "DRTG", "eFG", "TS", "OR", "DR", "ARate", "TO", "Stl", "Blk", "BPM", "OBPM", "DBPM"];
 
   const embed = new EmbedBuilder()
     .setTitle(`🏀 ${player.name}`)
