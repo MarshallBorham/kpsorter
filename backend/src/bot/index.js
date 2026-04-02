@@ -192,6 +192,81 @@ function buildSearchEmbed(ranked, statList, limit, filterMin, portalOnly, classF
     .setFooter({ text: footerText });
 }
 
+async function buildCompareEmbed(playerA, playerB, sharedBy = null) {
+  const pool = await Player.find({ "stats.Min": { $gte: 15 } }).lean();
+  const percentileFns = {};
+  for (const { key } of COMPARE_STATS) {
+    percentileFns[key] = calcPercentiles(key, pool);
+  }
+
+  let scoreA = 0;
+  let scoreB = 0;
+
+  function getWinner(key, valA, valB) {
+    if (valA == null && valB == null) return null;
+    if (valA == null) return "B";
+    if (valB == null) return "A";
+    const lowerIsBetter = LOWER_IS_BETTER.has(key);
+    if (valA === valB) return null;
+    if (lowerIsBetter) return valA < valB ? "A" : "B";
+    return valA > valB ? "A" : "B";
+  }
+
+  const linesA = [];
+  const linesB = [];
+
+  for (const { key, label } of COMPARE_STATS) {
+    const valA = playerA.stats?.[key];
+    const valB = playerB.stats?.[key];
+    const winner = getWinner(key, valA, valB);
+
+    if (winner === "A") scoreA++;
+    if (winner === "B") scoreB++;
+
+    const pctA = valA != null ? percentileFns[key](valA) : null;
+    const pctB = valB != null ? percentileFns[key](valB) : null;
+
+    const strA = valA != null ? `${formatVal(key, valA)} (${pctA}th %)` : "—";
+    const strB = valB != null ? `${formatVal(key, valB)} (${pctB}th %)` : "—";
+
+    linesA.push(`${winner === "A" ? "✅ " : ""}**${label}:** ${strA}`);
+    linesB.push(`${winner === "B" ? "✅ " : ""}**${label}:** ${strB}`);
+  }
+
+  let verdict;
+  if (scoreA > scoreB) {
+    verdict = `🏆 **${playerA.name}** wins the comparison ${scoreA}–${scoreB}`;
+  } else if (scoreB > scoreA) {
+    verdict = `🏆 **${playerB.name}** wins the comparison ${scoreB}–${scoreA}`;
+  } else {
+    verdict = `🤝 Tied ${scoreA}–${scoreB}`;
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle(`⚔️ ${playerA.name} vs ${playerB.name}`)
+    .setColor(0x0052cc)
+    .addFields(
+      {
+        name: `${playerA.name} — ${playerA.team} · ${playerA.year}`,
+        value: linesA.join("\n"),
+        inline: true,
+      },
+      {
+        name: `${playerB.name} — ${playerB.team} · ${playerB.year}`,
+        value: linesB.join("\n"),
+        inline: true,
+      },
+      {
+        name: "Result",
+        value: verdict,
+        inline: false,
+      }
+    );
+
+  if (sharedBy) embed.setFooter({ text: `Shared by ${sharedBy}` });
+  return embed;
+}
+
 function addStatOptions(builder, count, required = false) {
   for (let i = 1; i <= count; i++) {
     builder.addStringOption(opt =>
@@ -334,6 +409,18 @@ const compareCommand = new SlashCommandBuilder()
       .setDescription("Second player name")
       .setRequired(true));
 
+const shareCompareCommand = new SlashCommandBuilder()
+  .setName("sharecompare")
+  .setDescription("Share a head to head player comparison publicly in the channel")
+  .addStringOption(opt =>
+    opt.setName("player1")
+      .setDescription("First player name")
+      .setRequired(true))
+  .addStringOption(opt =>
+    opt.setName("player2")
+      .setDescription("Second player name")
+      .setRequired(true));
+
 const commands = [
   searchCommand,
   new SlashCommandBuilder()
@@ -364,6 +451,7 @@ const commands = [
   shareListCommand,
   shareSearchCommand,
   compareCommand,
+  shareCompareCommand,
 ];
 
 function getStatList(interaction, count = 6) {
@@ -729,38 +817,34 @@ export async function startBot() {
           return;
         }
 
-        const pool = await Player.find({ "stats.Min": { $gte: 15 } }).lean();
-        const percentileFns = {};
-        for (const { key } of COMPARE_STATS) {
-          percentileFns[key] = calcPercentiles(key, pool);
+        await interaction.editReply({
+          embeds: [await buildCompareEmbed(playerA, playerB)]
+        });
+      }
+
+      else if (commandName === "sharecompare") {
+        await interaction.deferReply();
+
+        const name1 = interaction.options.getString("player1");
+        const name2 = interaction.options.getString("player2");
+
+        const [playerA, playerB] = await Promise.all([
+          Player.findOne({ name: { $regex: name1, $options: "i" } }).lean(),
+          Player.findOne({ name: { $regex: name2, $options: "i" } }).lean(),
+        ]);
+
+        if (!playerA) {
+          await interaction.editReply({ content: `❌ No player found matching "${name1}"`, flags: MessageFlags.Ephemeral });
+          return;
+        }
+        if (!playerB) {
+          await interaction.editReply({ content: `❌ No player found matching "${name2}"`, flags: MessageFlags.Ephemeral });
+          return;
         }
 
-        function buildPlayerSection(player) {
-          return COMPARE_STATS.map(({ key, label }) => {
-            const val = player.stats?.[key];
-            if (val == null) return `**${label}:** —`;
-            const pct = percentileFns[key](val);
-            return `**${label}:** ${formatVal(key, val)} (${pct}th %)`;
-          }).join("\n");
-        }
-
-        const embed = new EmbedBuilder()
-          .setTitle(`⚔️ ${playerA.name} vs ${playerB.name}`)
-          .setColor(0x0052cc)
-          .addFields(
-            {
-              name: `${playerA.name} — ${playerA.team} · ${playerA.year}`,
-              value: buildPlayerSection(playerA),
-              inline: true,
-            },
-            {
-              name: `${playerB.name} — ${playerB.team} · ${playerB.year}`,
-              value: buildPlayerSection(playerB),
-              inline: true,
-            }
-          );
-
-        await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({
+          embeds: [await buildCompareEmbed(playerA, playerB, interaction.user.username)]
+        });
       }
 
     } catch (err) {
