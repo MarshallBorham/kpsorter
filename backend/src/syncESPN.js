@@ -54,7 +54,7 @@ for (let i = 0; i < allTeams.length; i++) {
 }
 console.log(`Total players found across all rosters: ${Object.keys(espnPlayers).length}`);
 
-// Step 3: Fetch PPG/RPG/APG from leaders endpoint
+// Step 3: Fetch PPG/RPG/APG from leaders endpoint and resolve athlete names
 console.log("Fetching leaders (PPG, RPG, APG)...");
 const leadersRes = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/2026/types/2/leaders?limit=1000`);
 const leadersData = await leadersRes.json();
@@ -65,24 +65,47 @@ const STAT_MAP = {
   assistsPerGame:  "APG",
 };
 
-const athleteStatMap = {};
+// Build name+team → stat value map by fetching each leader's athlete profile
+const athleteStatByName = {}; // { "Name|Team": { PPG, RPG, APG } }
 
 for (const category of leadersData.categories) {
   const statKey = STAT_MAP[category.name];
   if (!statKey) continue;
-  console.log(`  ${category.name}: ${category.leaders.length} leaders`);
-  for (const leader of category.leaders) {
-    const ref = leader.athlete?.["$ref"];
-    if (!ref) continue;
-    const match = ref.match(/athletes\/(\d+)/);
-    if (!match) continue;
-    const espnId = match[1];
-    if (!athleteStatMap[espnId]) athleteStatMap[espnId] = {};
-    athleteStatMap[espnId][statKey] = leader.value;
+  console.log(`  Processing ${category.name}: ${category.leaders.length} leaders...`);
+
+  for (let i = 0; i < category.leaders.length; i++) {
+    const leader = category.leaders[i];
+    const athleteRef = leader.athlete?.["$ref"];
+    const teamRef = leader.team?.["$ref"];
+    if (!athleteRef) continue;
+
+    try {
+      const [athleteRes, teamRes] = await Promise.all([
+        fetch(athleteRef),
+        teamRef ? fetch(teamRef) : Promise.resolve(null),
+      ]);
+
+      const athleteData = await athleteRes.json();
+      const teamData = teamRes ? await teamRes.json() : null;
+
+      const name = athleteData.fullName || athleteData.displayName || "";
+      const team = teamData?.displayName || teamData?.name || "";
+
+      if (!name) continue;
+
+      const key = `${name}|${team}`;
+      if (!athleteStatByName[key]) athleteStatByName[key] = {};
+      athleteStatByName[key][statKey] = leader.value;
+
+      if ((i + 1) % 50 === 0) console.log(`    Fetched ${i + 1}/${category.leaders.length} athletes...`);
+      await delay(30);
+    } catch {
+      // silently skip
+    }
   }
 }
 
-console.log(`Stats found for ${Object.keys(athleteStatMap).length} unique athletes`);
+console.log(`Resolved stats for ${Object.keys(athleteStatByName).length} unique name+team combinations`);
 
 // Step 4: Load DB players
 console.log("Loading database players for matching...");
@@ -150,13 +173,9 @@ function findDbPlayer(espnName, espnTeam) {
     const dbLast = normalizeName(parts.slice(1).join(" ") || "");
     const dbSchool = normalizeName(dbPlayer.team || "");
 
-    // First letter of first name must match
     if (!espnFirst || !dbFirst || espnFirst[0] !== dbFirst[0]) continue;
-
-    // School must match closely
     if (!schoolMatches(espnSchool, dbSchool)) continue;
 
-    // Fuzzy last name — max 2 edits
     const lastDist = editDistance(espnLast, dbLast);
     if (lastDist < bestDistance && lastDist <= 2) {
       bestDistance = lastDist;
@@ -168,7 +187,7 @@ function findDbPlayer(espnName, espnTeam) {
   return null;
 }
 
-// Step 5: Match and update — only use leaders endpoint data
+// Step 5: Match roster players to DB and look up their stats by name+team
 console.log("Matching and updating players...");
 
 let matched = 0;
@@ -195,8 +214,9 @@ for (let i = 0; i < rosterIds.length; i++) {
   if (processedDbIds.has(String(player._id))) continue;
   processedDbIds.add(String(player._id));
 
-  // Only use leaders endpoint data — skip if not in top leaders
-  const stats = athleteStatMap[espnId];
+  // Look up stats by verified name+team key
+  const nameKey = `${espn.name}|${espn.team}`;
+  const stats = athleteStatByName[nameKey];
 
   if (!stats) {
     noStats++;
