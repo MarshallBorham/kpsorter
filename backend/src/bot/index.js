@@ -113,7 +113,7 @@ function buildPlayerEmbed(player, sharedBy = null) {
       }
     );
 
-  if (sharedBy) embed.setFooter({ text: `Shared by ${sharedBy}, powered by cbb.up.railway.app` });
+  if (sharedBy) embed.setFooter({ text: `Shared by ${sharedBy}, visit cbb.up.railway.app` });
   return embed;
 }
 
@@ -262,7 +262,7 @@ async function buildCompareEmbed(playerA, playerB, sharedBy = null) {
       }
     );
 
-  if (sharedBy) embed.setFooter({ text: `Shared by ${sharedBy}` });
+  if (sharedBy) embed.setFooter({ text: `Shared by ${sharedBy}, visit cbb.up.railway.app` });
   return embed;
 }
 
