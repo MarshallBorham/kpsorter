@@ -218,7 +218,7 @@ if (TEST_RUN) {
   process.exit(0);
 }
 
-// --- TOP100 SEED: update statsTop100 only, don't wipe DB ---
+// --- TOP100 SEED: update statsTop100 only, match by name+team ---
 if (TOP100) {
   console.log("Updating statsTop100 for matched players...");
   let updated = 0;
@@ -226,7 +226,7 @@ if (TOP100) {
 
   for (const doc of docs) {
     const result = await Player.updateOne(
-      { id: doc.id },
+      { name: doc.name, team: doc.team },
       { $set: { statsTop100: doc.stats } }
     );
     if (result.modifiedCount > 0) {

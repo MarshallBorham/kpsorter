@@ -116,7 +116,7 @@ function formatVal(stat, val) {
 }
 
 function buildPlayerEmbed(player, sharedBy = null) {
-  const keyStats = ["PPG", "RPG", "APG", "Min", "ORTG", "DRTG", "eFG", "3P", "Stl", "Blk", "OR", "DR", "ARate", "TO", "BPM", "OBPM", "DBPM"];
+  const keyStats = ["PPG", "RPG", "APG", "Min", "ORTG", "DRTG", "eFG", "3P", "3PM", "Close2PM", "Close2P", "Stl", "Blk", "OR", "DR", "ARate", "TO", "BPM", "OBPM", "DBPM"];
 
   const embed = new EmbedBuilder()
     .setTitle(`🏀 ${player.name}`)
