@@ -49,7 +49,7 @@ function rowToDoc(cols) {
   const team = cols[1]?.trim();
   const height = cols[26]?.trim();
 
-  const id = `${name}-${team}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const id = `${name}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   const dunksMade = pf(cols[42]);
   const dunksAtt  = pf(cols[43]);
   const dunkPct   = cols[44] !== "" && cols[44] != null
