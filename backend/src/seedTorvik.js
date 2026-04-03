@@ -97,7 +97,7 @@ function rowToDoc(cols) {
   const name = cols[0]?.trim();
   const team = cols[1]?.trim();
   const height = cols[26]?.trim();
-  const id = `${name}-${team}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const id = `${name}`.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
   return {
     id,
