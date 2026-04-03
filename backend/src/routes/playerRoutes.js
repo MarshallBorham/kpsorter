@@ -14,6 +14,23 @@ const validStats = [
 
 const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
 
+const HM_TEAMS = new Set([
+  "California", "Clemson", "Duke", "Florida State", "Georgia Tech",
+  "Louisville", "Miami", "North Carolina", "NC State", "Notre Dame",
+  "Pittsburgh", "SMU", "Stanford", "Syracuse", "Virginia", "Virginia Tech",
+  "Wake Forest", "Butler", "UConn", "Creighton", "DePaul", "Georgetown",
+  "Marquette", "Providence", "St. John's", "Seton Hall", "Villanova", "Xavier",
+  "Illinois", "Indiana", "Iowa", "Maryland", "Michigan", "Michigan State",
+  "Minnesota", "Nebraska", "Northwestern", "Ohio State", "Oregon", "Penn State",
+  "Purdue", "Rutgers", "UCLA", "USC", "Washington", "Wisconsin",
+  "Alabama", "Arkansas", "Auburn", "Florida", "Georgia", "Kentucky",
+  "LSU", "Mississippi State", "Missouri", "Oklahoma", "Ole Miss",
+  "South Carolina", "Tennessee", "Texas A&M", "Texas", "Vanderbilt",
+  "Boston College", "Arizona", "Arizona State", "Baylor", "BYU",
+  "Cincinnati", "Colorado", "Houston", "Iowa State", "Kansas", "Kansas State",
+  "Oklahoma State", "TCU", "Texas Tech", "UCF", "Utah", "West Virginia",
+]);
+
 function calcPercentiles(stat, pool) {
   const values = pool.map((p) => p.stats[stat] ?? 0).sort((a, b) => a - b);
   const total = values.length;
@@ -30,7 +47,7 @@ function calcPercentiles(stat, pool) {
 }
 
 playerRouter.get("/", async (req, res) => {
-  const { stats, filterMin, filters, classes, minHeight, maxHeight, portalOnly } = req.query;
+  const { stats, filterMin, filters, classes, minHeight, maxHeight, portalOnly, hmFilter } = req.query;
 
   if (!stats) {
     return res.status(400).json({ error: "stats query param is required" });
@@ -94,7 +111,7 @@ playerRouter.get("/", async (req, res) => {
       percentileFns[s] = calcPercentiles(s, pool);
     }
 
-    const ranked = pool
+    let ranked = pool
       .map((p) => {
         const statValues = {};
         const statPcts = {};
@@ -131,6 +148,13 @@ playerRouter.get("/", async (req, res) => {
         }, 0);
         return bRaw - aRaw;
       });
+
+    // Apply HM filter after percentiles are calculated against full pool
+    if (hmFilter === "hm") {
+      ranked = ranked.filter((p) => HM_TEAMS.has(p.team));
+    } else if (hmFilter === "non_hm") {
+      ranked = ranked.filter((p) => !HM_TEAMS.has(p.team));
+    }
 
     res.json({ statList, results: ranked });
   } catch (err) {

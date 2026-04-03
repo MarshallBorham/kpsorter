@@ -21,6 +21,7 @@ export default function ResultsPage() {
   const filtersParam = searchParams.get("filters");
   const classesParam = searchParams.get("classes");
   const portalOnly = searchParams.get("portalOnly");
+  const hmFilter = searchParams.get("hmFilter");
   const statList = statsParam ? statsParam.split(",") : [];
   const activeFilters = filtersParam ? JSON.parse(decodeURIComponent(filtersParam)) : [];
 
@@ -38,7 +39,7 @@ export default function ResultsPage() {
       setError("");
       try {
         const res = await fetch(
-          `/api/players?stats=${statsParam}&filterMin=${filterMin}${filtersParam ? `&filters=${filtersParam}` : ""}${classesParam ? `&classes=${classesParam}` : ""}${portalOnly === "true" ? "&portalOnly=true" : ""}`
+          `/api/players?stats=${statsParam}&filterMin=${filterMin}${filtersParam ? `&filters=${filtersParam}` : ""}${classesParam ? `&classes=${classesParam}` : ""}${portalOnly === "true" ? "&portalOnly=true" : ""}${hmFilter ? `&hmFilter=${hmFilter}` : ""}`
         );
         const data = await res.json();
         if (!res.ok) { setError(data.error || "Failed to fetch players"); return; }
@@ -50,7 +51,7 @@ export default function ResultsPage() {
       }
     }
     fetchPlayers();
-  }, [statsParam, filterMin, filtersParam, classesParam, portalOnly]);
+  }, [statsParam, filterMin, filtersParam, classesParam, portalOnly, hmFilter]);
 
   async function handleSave(player) {
     setSaving(player.id);
@@ -75,6 +76,7 @@ export default function ResultsPage() {
     filterMin === "true" ? "Min% ≥ 15%" : null,
     portalOnly === "true" ? "In Transfer Portal" : null,
     classesParam ? `Class: ${classesParam}` : null,
+    hmFilter === "hm" ? "HM Schools Only" : hmFilter === "non_hm" ? "Non-HM Schools Only" : null,
     ...activeFilters
       .filter((f) => f.value !== "")
       .map((f) => `${f.stat} ${f.type === "min" ? "≥" : "≤"} ${f.value}`),

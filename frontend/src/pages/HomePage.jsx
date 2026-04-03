@@ -5,9 +5,9 @@ import Header from "../components/Header.jsx";
 const STATS = [
   { value: "G",         label: "Games Played" },
   { value: "Min",       label: "Minute %" },
-  { value: "PPG", label: "Points Per Game" },
-  { value: "RPG", label: "Rebounds Per Game" },
-  { value: "APG", label: "Assists Per Game" },
+  { value: "PPG",       label: "Points Per Game" },
+  { value: "RPG",       label: "Rebounds Per Game" },
+  { value: "APG",       label: "Assists Per Game" },
   { value: "ORTG",      label: "Offensive Rating" },
   { value: "DRTG",      label: "Defensive Rating" },
   { value: "Usg",       label: "Usage %" },
@@ -47,11 +47,18 @@ const STATS = [
 
 const ALL_CLASSES = ["Fr", "So", "Jr", "Sr"];
 
+const HM_FILTER_OPTIONS = [
+  { value: null,      label: "All Schools" },
+  { value: "hm",     label: "HM Only" },
+  { value: "non_hm", label: "Non-HM Only" },
+];
+
 export default function HomePage() {
   const navigate = useNavigate();
   const [selectedStats, setSelectedStats] = useState(["eFG", "ARate"]);
   const [filterMin, setFilterMin] = useState(true);
   const [portalOnly, setPortalOnly] = useState(false);
+  const [hmFilter, setHmFilter] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState([
     { stat: "G", type: "min", value: "" },
@@ -133,9 +140,10 @@ export default function HomePage() {
       : "";
 
     const portalParam = portalOnly ? "&portalOnly=true" : "";
+    const hmParam = hmFilter ? `&hmFilter=${hmFilter}` : "";
 
     navigate(
-      `/results?stats=${selectedStats.join(",")}&filterMin=${filterMin}${filtersParam ? `&filters=${filtersParam}` : ""}${classesParam}${portalParam}`
+      `/results?stats=${selectedStats.join(",")}&filterMin=${filterMin}${filtersParam ? `&filters=${filtersParam}` : ""}${classesParam}${portalParam}${hmParam}`
     );
   }
 
@@ -235,6 +243,34 @@ export default function HomePage() {
 
             <div style={{ marginBottom: "1rem" }}>
               <p style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", textAlign: "left" }}>
+                Conference Filter
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                {HM_FILTER_OPTIONS.map(({ value, label }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setHmFilter(value)}
+                    style={{
+                      padding: "0.35rem 0.9rem",
+                      borderRadius: "999px",
+                      border: "1px solid var(--border)",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      fontSize: "0.875rem",
+                      background: hmFilter === value ? "var(--primary)" : "transparent",
+                      color: hmFilter === value ? "#fff" : "var(--text)",
+                      transition: "all 200ms ease",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "1rem" }}>
+              <p style={{ fontSize: "0.875rem", fontWeight: 600, marginBottom: "0.5rem", textAlign: "left" }}>
                 Class
                 {classesFiltered && (
                   <span style={{
@@ -293,41 +329,15 @@ export default function HomePage() {
                 gap: "0.5rem",
               }}
             >
-              {showAdvanced ? "▲" : "▼"} Advanced Filters
-              {activeFilterCount > 0 && (
-                <span style={{
-                  background: "var(--primary)",
-                  color: "#fff",
-                  borderRadius: "999px",
-                  padding: "0.1rem 0.5rem",
-                  fontSize: "0.75rem",
-                }}>
-                  {activeFilterCount} active
-                </span>
-              )}
+              {showAdvanced ? "▲ Hide Advanced Filters" : `▼ Advanced Filters${activeFilterCount > 0 ? ` (${activeFilterCount} active)` : ""}`}
             </button>
 
             {showAdvanced && (
-              <div style={{
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius)",
-                padding: "1rem",
-                marginBottom: "1rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.75rem",
-              }}>
-                <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "0.25rem" }}>
-                  Filter out players who don't meet a minimum or exceed a maximum in any stat.
-                </p>
-
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" }}>
                 {advancedFilters.map((filter, index) => (
-                  <div
-                    key={index}
-                    style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end", flexWrap: "wrap" }}
-                  >
-                    <div className="form-group" style={{ flex: 2, minWidth: "120px", marginBottom: 0 }}>
-                      <label style={{ fontSize: "0.75rem" }}>Stat</label>
+                  <div key={index} style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
+                    <div className="form-group" style={{ flex: 2, marginBottom: 0 }}>
+                      <label>Stat</label>
                       <select
                         value={filter.stat}
                         onChange={(e) => updateAdvancedFilter(index, "stat", e.target.value)}
@@ -337,29 +347,26 @@ export default function HomePage() {
                         ))}
                       </select>
                     </div>
-
-                    <div className="form-group" style={{ flex: 1, minWidth: "90px", marginBottom: 0 }}>
-                      <label style={{ fontSize: "0.75rem" }}>Type</label>
+                    <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                      <label>Type</label>
                       <select
                         value={filter.type}
                         onChange={(e) => updateAdvancedFilter(index, "type", e.target.value)}
                       >
-                        <option value="min">≥</option>
-                        <option value="max">≤</option>
+                        <option value="min">Min</option>
+                        <option value="max">Max</option>
                       </select>
                     </div>
-
-                    <div className="form-group" style={{ flex: 1, minWidth: "80px", marginBottom: 0 }}>
-                      <label style={{ fontSize: "0.75rem" }}>Value</label>
+                    <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                      <label>Value</label>
                       <input
                         type="number"
                         value={filter.value}
                         onChange={(e) => updateAdvancedFilter(index, "value", e.target.value)}
-                        placeholder="e.g. 10"
+                        placeholder="0"
                         step="any"
                       />
                     </div>
-
                     <button
                       type="button"
                       onClick={() => removeAdvancedFilter(index)}
