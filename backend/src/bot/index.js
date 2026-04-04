@@ -230,23 +230,18 @@ function buildSearchEmbed(ranked, statList, limit, filterMin, portalOnly, classF
     sharedBy ? `Shared by ${sharedBy}` : null,
   ].filter(Boolean).join(" · ");
 
-    const params = new URLSearchParams({
-            stats: statList.join(","),
-            filterMin: filterMin ? "true" : "false",
-             ...(portalOnly && { portalOnly: "true" }),
-             ...(classFilter && { classes: classFilter }),
-             ...(hmFilter && { hmFilter }),
-             ...(top100 && { top100: "true" }),
-     });
+  const params = new URLSearchParams({ stats: statList.join(","), filterMin: filterMin ? "true" : "false" });
+  if (portalOnly) params.set("portalOnly", "true");
+  if (classFilter) params.set("classes", classFilter);
+  if (hmFilter) params.set("hmFilter", hmFilter);
+  if (top100) params.set("top100", "true");
 
   return new EmbedBuilder()
     .setTitle(`🏀 Top Players: ${statList.join(" + ")}`)
     .setURL(`https://cbb.up.railway.app/results?${params.toString()}`)
     .setColor(0x0052cc)
     .setDescription(description)
-    .setFooter({ text: footerText });
     .setFooter({ text: footerText + " · Click title to see full results" });
-}
 
 async function buildCompareEmbed(playerA, playerB, sharedBy = null, top100 = false) {
   const statsField = top100 ? "statsTop100" : "stats";
