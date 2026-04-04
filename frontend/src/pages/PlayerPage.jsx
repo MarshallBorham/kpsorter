@@ -26,6 +26,7 @@ const STAT_GROUPS = [
 ];
 
 const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
+const MONO = "var(--font-mono)";
 
 function formatVal(stat, val) {
   const wholeNumber = new Set(["G","FTA","FTM","2PM","2PA","3PM","3PA","Close2PM","Close2PA","Far2PM","Far2PA","DunksAtt","DunksMade"]);
@@ -43,31 +44,38 @@ function ordinal(n) {
 }
 
 function StatCard({ statKey, val, pct }) {
-  const barColor = pct == null
-    ? "var(--text-muted)"
-    : LOWER_IS_BETTER.has(statKey)
-      ? (pct >= 75 ? "#22c55e" : pct >= 40 ? "var(--primary)" : "#ef4444")
-      : (pct >= 75 ? "#22c55e" : pct >= 40 ? "var(--primary)" : "#ef4444");
+  const barColor = pct == null ? "var(--border-bright)"
+    : pct >= 75 ? "var(--success)"
+    : pct >= 40 ? "var(--primary)"
+    : "var(--error)";
 
   return (
     <div style={{
       background: "var(--surface)",
+      border: "1px solid var(--border)",
       borderRadius: "var(--radius)",
       padding: "0.75rem 1rem",
-      boxShadow: "var(--shadow)",
     }}>
-      <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.35rem" }}>
+      <div style={{
+        fontFamily: MONO, fontSize: "0.62rem", color: "var(--text-muted)",
+        fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
+        marginBottom: "0.4rem",
+      }}>
         {STAT_LABELS[statKey] || statKey}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "0.4rem" }}>
-        <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>{formatVal(statKey, val)}</span>
+        <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "1.1rem" }}>
+          {formatVal(statKey, val)}
+        </span>
         {pct != null && (
-          <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{ordinal(pct)}</span>
+          <span style={{ fontFamily: MONO, fontSize: "0.68rem", color: "var(--text-muted)", letterSpacing: "0.04em" }}>
+            {ordinal(pct)}
+          </span>
         )}
       </div>
       {pct != null && (
-        <div style={{ height: "4px", background: "var(--bg)", borderRadius: "2px", overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: "2px", transition: "width 0.3s ease" }} />
+        <div style={{ height: "3px", background: "var(--bg)", borderRadius: "2px", overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: "2px" }} />
         </div>
       )}
     </div>
@@ -94,7 +102,6 @@ export default function PlayerPage() {
         if (!playerRes.ok) { setError(playerData.error || "Player not found"); return; }
         setPlayer(playerData);
 
-        // reuse the compare endpoint — playerA.statPcts has all percentiles for this player
         if (pctRes.ok) {
           const pctData = await pctRes.json();
           setPercentiles(pctData.playerA?.statPcts || {});
@@ -122,7 +129,8 @@ export default function PlayerPage() {
             {/* Header card */}
             <div style={{
               background: "var(--surface)",
-              borderRadius: "var(--radius)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-lg)",
               padding: "1.5rem",
               boxShadow: "var(--shadow)",
               marginBottom: "2rem",
@@ -130,27 +138,34 @@ export default function PlayerPage() {
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem" }}>
                 <div>
-                  <h1 style={{ margin: 0, fontSize: "1.75rem" }}>{player.name}</h1>
-                  <p style={{ color: "var(--text-muted)", margin: "0.35rem 0 0", fontSize: "1rem" }}>
+                  <h1 style={{ fontFamily: MONO, margin: 0, fontSize: "1.4rem", fontWeight: 700, letterSpacing: "0.02em" }}>
+                    {player.name}
+                  </h1>
+                  <p style={{ fontFamily: MONO, color: "var(--text-muted)", margin: "0.4rem 0 0", fontSize: "0.78rem", letterSpacing: "0.04em" }}>
                     {player.team} · {player.position} · {player.year}
                     {player.height && ` · ${player.height}`}
                   </p>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.4rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.5rem" }}>
                   {player.inPortal && (
                     <span style={{
-                      background: "var(--primary)", color: "#fff",
+                      fontFamily: MONO, fontWeight: 700, fontSize: "0.65rem",
+                      letterSpacing: "0.08em", textTransform: "uppercase",
+                      background: "var(--primary)", color: "#0d1117",
                       padding: "0.3rem 0.85rem", borderRadius: "999px",
-                      fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.04em",
                     }}>
-                      IN TRANSFER PORTAL
+                      In Transfer Portal
                     </span>
                   )}
                   <Link
                     to={`/compare?p1=${playerId}`}
-                    style={{ fontSize: "0.85rem", color: "var(--primary)", textDecoration: "none", fontWeight: 600 }}
+                    style={{
+                      fontFamily: MONO, fontSize: "0.7rem", fontWeight: 700,
+                      letterSpacing: "0.06em", textTransform: "uppercase",
+                      color: "var(--primary)", textDecoration: "none",
+                    }}
                   >
-                    ⚔️ Compare this player →
+                    ⚔️ Compare →
                   </Link>
                 </div>
               </div>
@@ -163,14 +178,15 @@ export default function PlayerPage() {
               return (
                 <div key={group.label} style={{ marginBottom: "2rem" }}>
                   <h2 style={{
-                    fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase",
-                    letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "0.6rem",
+                    fontFamily: MONO, fontSize: "0.7rem", fontWeight: 700,
+                    textTransform: "uppercase", letterSpacing: "0.1em",
+                    color: "var(--text-muted)", marginBottom: "0.6rem",
                   }}>
-                    {group.label}
+                    // {group.label}
                   </h2>
                   <div style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))",
                     gap: "0.65rem",
                   }}>
                     {visibleStats.map(s => (
