@@ -6,11 +6,11 @@ export default function Header() {
   const { username, isGuest, logout } = useAuth();
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem("darkMode") === "true"
+    () => localStorage.getItem("darkMode") !== "false"
   );
 
   useEffect(() => {
-    document.body.classList.toggle("dark-mode", darkMode);
+    document.body.classList.toggle("light-mode", !darkMode);
     localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
 
