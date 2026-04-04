@@ -242,6 +242,7 @@ function buildSearchEmbed(ranked, statList, limit, filterMin, portalOnly, classF
     .setColor(0x0052cc)
     .setDescription(description)
     .setFooter({ text: footerText + " · Click title to see full results" });
+}
 
 async function buildCompareEmbed(playerA, playerB, sharedBy = null, top100 = false) {
   const statsField = top100 ? "statsTop100" : "stats";
