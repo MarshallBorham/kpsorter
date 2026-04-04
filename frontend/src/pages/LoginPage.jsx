@@ -21,10 +21,7 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Login failed");
-        return;
-      }
+      if (!res.ok) { setError(data.error || "Login failed"); return; }
       login(data.token, data.username);
       navigate("/");
     } catch {
@@ -42,7 +39,7 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1>🏀 Player Finder</h1>
+        <h1>CBB Sorter</h1>
 
         {error && <p className="error-msg">{error}</p>}
 
@@ -69,24 +66,11 @@ export default function LoginPage() {
             />
           </div>
           <button className="btn btn-primary" type="submit" disabled={loading}>
-            {loading ? "Signing in…" : "Sign In"}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
-        <button
-          onClick={handleGuest}
-          style={{
-            marginTop: "0.75rem",
-            width: "100%",
-            padding: "0.6rem",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius)",
-            background: "none",
-            color: "var(--text-muted)",
-            cursor: "pointer",
-            fontSize: "0.95rem",
-          }}
-        >
+        <button className="btn-logout" onClick={handleGuest} style={{ marginTop: "0.75rem", width: "100%" }}>
           Continue as Guest
         </button>
 
