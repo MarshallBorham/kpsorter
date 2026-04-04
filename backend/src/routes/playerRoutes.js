@@ -46,6 +46,7 @@ function calcPercentiles(stat, pool, statsField) {
   };
 }
 
+// GET /api/players — main search/ranking endpoint
 playerRouter.get("/", async (req, res) => {
   const { stats, filterMin, filters, classes, minHeight, maxHeight, portalOnly, hmFilter, top100 } = req.query;
 
@@ -82,7 +83,6 @@ playerRouter.get("/", async (req, res) => {
   const query = {};
 
   if (useTop100) {
-    // Only include players that have top100 stats
     query["statsTop100.G"] = { $exists: true, $gt: 0 };
     if (filterMin === "true") {
       query["statsTop100.Min"] = { $gte: 15 };
@@ -167,7 +167,6 @@ playerRouter.get("/", async (req, res) => {
         return bRaw - aRaw;
       });
 
-    // Apply HM filter after percentiles are calculated against full pool
     if (hmFilter === "hm") {
       ranked = ranked.filter((p) => HM_TEAMS.has(p.team));
     } else if (hmFilter === "non_hm") {
@@ -181,6 +180,67 @@ playerRouter.get("/", async (req, res) => {
   }
 });
 
+// GET /api/players/search?q=... — name autocomplete for compare page
+playerRouter.get("/search", async (req, res) => {
+  const { q } = req.query;
+  if (!q || q.length < 2) return res.status(400).json({ error: "Query too short" });
+  try {
+    const players = await Player.find(
+      { name: { $regex: q, $options: "i" } },
+      { id: 1, name: 1, team: 1, year: 1, position: 1, inPortal: 1 }
+    ).limit(10).lean();
+    res.json({ results: players });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/players/compare?p1=ID&p2=ID — full side-by-side comparison with percentiles
+playerRouter.get("/compare", async (req, res) => {
+  const { p1, p2 } = req.query;
+  if (!p1 || !p2) return res.status(400).json({ error: "p1 and p2 player IDs are required" });
+
+  try {
+    const [playerA, playerB] = await Promise.all([
+      Player.findOne({ id: p1 }).lean(),
+      Player.findOne({ id: p2 }).lean(),
+    ]);
+
+    if (!playerA) return res.status(404).json({ error: `Player not found: ${p1}` });
+    if (!playerB) return res.status(404).json({ error: `Player not found: ${p2}` });
+
+    const pool = await Player.find({ "stats.Min": { $gte: 15 } }).lean();
+
+    const enriched = [playerA, playerB].map((player) => {
+      const statPcts = {};
+      for (const s of validStats) {
+        const val = player.stats?.[s];
+        if (val != null) {
+          const getPct = calcPercentiles(s, pool, "stats");
+          statPcts[s] = getPct(val);
+        }
+      }
+      return {
+        id: player.id,
+        name: player.name,
+        team: player.team,
+        year: player.year,
+        position: player.position,
+        height: player.height,
+        inPortal: player.inPortal,
+        stats: player.stats,
+        statPcts,
+      };
+    });
+
+    res.json({ playerA: enriched[0], playerB: enriched[1] });
+  } catch (err) {
+    console.error("Compare error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/players/:playerId — single player profile (must be last)
 playerRouter.get("/:playerId", async (req, res) => {
   try {
     const player = await Player.findOne({ id: req.params.playerId }).lean();

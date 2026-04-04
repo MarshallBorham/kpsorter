@@ -5,6 +5,8 @@ import RegisterPage from "./pages/RegisterPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import ResultsPage from "./pages/ResultsPage.jsx";
 import WatchlistPage from "./pages/WatchlistPage.jsx";
+import ComparePage from "./pages/ComparePage.jsx";
+
 
 function ProtectedRoute({ children }) {
   const { isLoggedIn } = useAuth();
@@ -24,6 +26,7 @@ export default function App() {
       <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
       <Route path="/results" element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
       <Route path="/watchlist" element={<AuthOnlyRoute><WatchlistPage /></AuthOnlyRoute>} />
+      <Route path="/compare" element={<ProtectedRoute><ComparePage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
