@@ -39,10 +39,10 @@ export default function Header() {
             Dark mode
           </label>
           {isGuest ? (
-            <span style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Guest</span>
-          ) : (
-            <span style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-              Hi, {username}
+            <span style={{ color: "var(--text-muted)", fontSize: "0.7rem", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Guest</span>
+            ) : (
+            <span style={{ color: "var(--text-muted)", fontSize: "0.7rem", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              {username}
             </span>
           )}
           <button className="btn-logout" onClick={handleLogout}>

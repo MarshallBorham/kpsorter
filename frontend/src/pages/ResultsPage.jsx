@@ -92,9 +92,9 @@ export default function ResultsPage() {
         <h1 className="page-title">Top Players: {statList.join(" + ")}</h1>
 
         {filterSummary.length > 0 && (
-          <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginBottom: "1.5rem" }}>
-            <strong>Active filters:</strong> {filterSummary.join(", ")}
-          </p>
+                        <p style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", marginBottom: "1.5rem" }}>
+                            // {filterSummary.join(" · ")}
+                        </p>
         )}
 
         {loading && <p className="status-msg">⏳ Loading players…</p>}
