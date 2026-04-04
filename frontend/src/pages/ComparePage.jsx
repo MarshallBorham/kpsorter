@@ -145,7 +145,7 @@ function PlayerSearch({ label, onSelect, selected, excludeId }) {
               onMouseEnter={e => e.currentTarget.style.background = "var(--surface-hover)"}
               onMouseLeave={e => e.currentTarget.style.background = "none"}
             >
-              <span style={{ fontWeight: 700, fontSize: "0.85rem" }}>{p.name}</span>
+              <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--text)" }}>{p.name}</span>
               <span style={{ color: "var(--text-muted)", marginLeft: "0.5rem", fontSize: "0.75rem" }}>
                 {p.team} · {p.year}
               </span>
