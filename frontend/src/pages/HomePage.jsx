@@ -171,8 +171,8 @@ export default function HomePage() {
             {/* Stat selectors */}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1rem" }}>
               {selectedStats.map((stat, index) => (
-                <div key={index} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                  <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                <div key={index} style={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%" }}>
+                  <div className="form-group" style={{ flex: 1, marginBottom: 0, minWidth: 0 }}>
                     <label htmlFor={`stat-${index}`}>Stat {index + 1}</label>
                     <select
                       id={`stat-${index}`}
@@ -194,10 +194,12 @@ export default function HomePage() {
                         background: "none",
                         border: "none",
                         color: "var(--error)",
-                        fontSize: "1.25rem",
+                        fontSize: "1rem",
                         cursor: "pointer",
-                        paddingTop: "1.2rem",
                         fontFamily: MONO,
+                        flexShrink: 0,
+                        padding: "0 0.25rem",
+                        paddingTop: "1.2rem",
                       }}
                     >
                       ✕
@@ -373,15 +375,15 @@ export default function HomePage() {
                 transition: "all 180ms ease",
               }}
             >
-              {showAdvanced ? "▲ Hide Advanced Filters" : `▼ Advanced Filters${activeFilterCount > 0 ? ` (${activeFilterCount} active)` : ""}`}
+              {showAdvanced ? "Hide Advanced Filters" : `Advanced Filters${activeFilterCount > 0 ? ` (${activeFilterCount} active)` : ""}`}
             </button>
 
             {/* Advanced filter rows */}
             {showAdvanced && (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" }}>
                 {advancedFilters.map((filter, index) => (
-                  <div key={index} style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
-                    <div className="form-group" style={{ flex: 2, marginBottom: 0 }}>
+                  <div key={index} style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end", width: "100%" }}>
+                    <div className="form-group" style={{ flex: 2, marginBottom: 0, minWidth: 0 }}>
                       <label>Stat</label>
                       <select
                         value={filter.stat}
@@ -393,7 +395,7 @@ export default function HomePage() {
                         ))}
                       </select>
                     </div>
-                    <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <div className="form-group" style={{ flex: 1, marginBottom: 0, minWidth: 0 }}>
                       <label>Type</label>
                       <select
                         value={filter.type}
@@ -404,7 +406,7 @@ export default function HomePage() {
                         <option value="max">Max</option>
                       </select>
                     </div>
-                    <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                    <div className="form-group" style={{ flex: 1, marginBottom: 0, minWidth: 0 }}>
                       <label>Value</label>
                       <input
                         type="number"
@@ -422,10 +424,12 @@ export default function HomePage() {
                         background: "none",
                         border: "none",
                         color: "var(--error)",
-                        fontSize: "1.25rem",
+                        fontSize: "1rem",
                         cursor: "pointer",
                         paddingBottom: "0.4rem",
                         fontFamily: MONO,
+                        flexShrink: 0,
+                        padding: "0 0.25rem",
                       }}
                       aria-label="Remove filter"
                     >

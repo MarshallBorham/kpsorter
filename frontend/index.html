@@ -6,6 +6,13 @@
     <title>CBB Sorter</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <script>
+      if (localStorage.getItem("darkMode") !== "false") {
+        document.body.classList.remove("light-mode");
+      } else {
+        document.body.classList.add("light-mode");
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
