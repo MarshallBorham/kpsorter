@@ -7,6 +7,8 @@ import ResultsPage from "./pages/ResultsPage.jsx";
 import WatchlistPage from "./pages/WatchlistPage.jsx";
 import ComparePage from "./pages/ComparePage.jsx";
 import PlayerPage from "./pages/PlayerPage.jsx";
+import LeaderboardPage from "./pages/LeaderboardPage.jsx";
+
 
 
 
@@ -29,6 +31,7 @@ export default function App() {
       <Route path="/results" element={<ResultsPage />} />
       <Route path="/watchlist" element={<AuthOnlyRoute><WatchlistPage /></AuthOnlyRoute>} />
       <Route path="/compare" element={<ComparePage />} />
+      <Route path="/compare/leaderboard" element={<LeaderboardPage />} />
       <Route path="/player/:playerId" element={<PlayerPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

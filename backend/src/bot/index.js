@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuil
 import { Player } from "../models/Player.js";
 import { User } from "../models/User.js";
 import { BotWatchlist } from "../models/BotWatchlist.js";
+import { recordComparison } from "../utils/recordComparison.js";
 
 const ALLOWED_GUILDS = new Set([
   "800261752540364840",
@@ -931,9 +932,9 @@ export async function startBot() {
           return;
         }
 
-        await interaction.editReply({
-          embeds: [await buildCompareEmbed(playerA, playerB, null, top100)]
-        });
+        const embed = await buildCompareEmbed(playerA, playerB, null, top100);
+        recordComparison(playerA, playerB, "discord").catch(err => console.error("recordComparison error:", err));
+        await interaction.editReply({ embeds: [embed] });
       }
 
       else if (commandName === "sharecompare") {
@@ -957,9 +958,9 @@ export async function startBot() {
           return;
         }
 
-        await interaction.editReply({
-          embeds: [await buildCompareEmbed(playerA, playerB, interaction.user.username, top100)]
-        });
+          const embed = await buildCompareEmbed(playerA, playerB, null, top100);
+          recordComparison(playerA, playerB, "discord").catch(err => console.error("recordComparison error:", err));
+          await interaction.editReply({ embeds: [embed] });
       }
 
     } catch (err) {

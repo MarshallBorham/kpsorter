@@ -1,5 +1,7 @@
 import express from "express";
 import { Player } from "../models/Player.js";
+import { ComparisonResult } from "../models/ComparisonResult.js";
+import { recordComparison } from "../utils/recordComparison.js";
 
 export const playerRouter = express.Router();
 
@@ -233,9 +235,88 @@ playerRouter.get("/compare", async (req, res) => {
       };
     });
 
+    // Record the comparison result (skip self-comparisons from PlayerPage)
+    if (p1 !== p2) {
+      recordComparison(playerA, playerB, "web").catch(err =>
+        console.error("recordComparison error:", err)
+      );
+    }
+
     res.json({ playerA: enriched[0], playerB: enriched[1] });
   } catch (err) {
     console.error("Compare error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// GET /api/players/leaderboard — comparison win/loss/tie totals
+playerRouter.get("/leaderboard", async (req, res) => {
+  try {
+    const [winRows, lossRows, tieRows] = await Promise.all([
+      ComparisonResult.aggregate([
+        { $match: { winnerId: { $ne: null } } },
+        { $group: { _id: "$winnerId", wins: { $sum: 1 } } },
+      ]),
+      ComparisonResult.aggregate([
+        { $match: { winnerId: { $ne: null } } },
+        { $project: {
+          loserId: {
+            $cond: [{ $eq: ["$winnerId", "$playerAId"] }, "$playerBId", "$playerAId"],
+          },
+        }},
+        { $group: { _id: "$loserId", losses: { $sum: 1 } } },
+      ]),
+      ComparisonResult.aggregate([
+        { $match: { winnerId: null } },
+        { $facet: {
+          asA: [{ $group: { _id: "$playerAId", ties: { $sum: 1 } } }],
+          asB: [{ $group: { _id: "$playerBId", ties: { $sum: 1 } } }],
+        }},
+      ]),
+    ]);
+
+    const map = {};
+
+    for (const row of winRows) {
+      if (!map[row._id]) map[row._id] = { wins: 0, losses: 0, ties: 0 };
+      map[row._id].wins = row.wins;
+    }
+    for (const row of lossRows) {
+      if (!map[row._id]) map[row._id] = { wins: 0, losses: 0, ties: 0 };
+      map[row._id].losses = row.losses;
+    }
+    for (const row of tieRows[0].asA) {
+      if (!map[row._id]) map[row._id] = { wins: 0, losses: 0, ties: 0 };
+      map[row._id].ties += row.ties;
+    }
+    for (const row of tieRows[0].asB) {
+      if (!map[row._id]) map[row._id] = { wins: 0, losses: 0, ties: 0 };
+      map[row._id].ties += row.ties;
+    }
+
+    for (const id of Object.keys(map)) {
+      const r = map[id];
+      r.total = r.wins + r.losses + r.ties;
+    }
+
+    const sorted = Object.entries(map)
+      .sort((a, b) => b[1].wins - a[1].wins)
+      .slice(0, 50);
+
+    const results = await Promise.all(
+      sorted.map(async ([playerId, stats]) => {
+        const player = await Player.findOne(
+          { id: playerId },
+          { id: 1, name: 1, team: 1, year: 1, position: 1 }
+        ).lean();
+        if (!player) return null;
+        return { ...player, ...stats };
+      })
+    );
+
+    res.json({ leaderboard: results.filter(Boolean) });
+  } catch (err) {
+    console.error("Leaderboard error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

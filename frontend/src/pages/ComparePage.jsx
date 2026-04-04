@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router";
 import Header from "../components/Header.jsx";
 
@@ -16,13 +16,13 @@ const STAT_LABELS = {
 };
 
 const STAT_GROUPS = [
-  { label: "Scoring", stats: ["PPG", "ORTG", "eFG", "TS", "Usg"] },
-  { label: "Shooting", stats: ["FT", "FTRate", "2P", "3P", "3P100", "Close2P", "Far2P"] },
-  { label: "Volume", stats: ["G", "Min", "FTM", "FTA", "2PM", "2PA", "3PM", "3PA", "Close2PM", "Close2PA", "Far2PM", "Far2PA", "DunksAtt", "DunksMade", "DunkPct"] },
+  { label: "Scoring",    stats: ["PPG", "ORTG", "eFG", "TS", "Usg"] },
+  { label: "Shooting",   stats: ["FT", "FTRate", "2P", "3P", "3P100", "Close2P", "Far2P"] },
+  { label: "Volume",     stats: ["G", "Min", "FTM", "FTA", "2PM", "2PA", "3PM", "3PA", "Close2PM", "Close2PA", "Far2PM", "Far2PA", "DunksAtt", "DunksMade", "DunkPct"] },
   { label: "Playmaking", stats: ["APG", "ARate", "TO"] },
   { label: "Rebounding", stats: ["RPG", "OR", "DR"] },
-  { label: "Defense", stats: ["DRTG", "Blk", "Stl", "FC40"] },
-  { label: "Overall", stats: ["BPM", "OBPM", "DBPM"] },
+  { label: "Defense",    stats: ["DRTG", "Blk", "Stl", "FC40"] },
+  { label: "Overall",    stats: ["BPM", "OBPM", "DBPM"] },
 ];
 
 const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
@@ -66,21 +66,29 @@ function PlayerSearch({ label, onSelect, selected, excludeId }) {
         const res = await fetch(`/api/players/search?q=${encodeURIComponent(query)}`);
         const data = await res.json();
         setResults((data.results || []).filter(p => p.id !== excludeId).slice(0, 8));
-      } catch { setResults([]); }
-      finally { setLoading(false); }
+      } catch {
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
     }, 300);
     return () => clearTimeout(timeout);
   }, [query, excludeId, selected]);
 
   if (selected) {
     return (
-      <div style={{ background: "var(--surface)", borderRadius: "var(--radius)", padding: "1rem 1.25rem", border: "2px solid var(--primary)" }}>
+      <div style={{
+        background: "var(--surface)", borderRadius: "var(--radius)",
+        padding: "1rem 1.25rem", border: "2px solid var(--primary)",
+      }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: "1.1rem" }}>{selected.name}</div>
             <div style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginTop: "0.2rem" }}>
               {selected.team} · {selected.position} · {selected.year}
-              {selected.inPortal && <span style={{ marginLeft: "0.5rem", color: "var(--primary)", fontWeight: 600 }}>IN PORTAL</span>}
+              {selected.inPortal && (
+                <span style={{ marginLeft: "0.5rem", color: "var(--primary)", fontWeight: 600 }}>IN PORTAL</span>
+              )}
             </div>
           </div>
           <button
@@ -94,27 +102,48 @@ function PlayerSearch({ label, onSelect, selected, excludeId }) {
 
   return (
     <div style={{ position: "relative" }}>
-      <label style={{ display: "block", fontWeight: 600, marginBottom: "0.4rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>{label}</label>
+      <label style={{ display: "block", fontWeight: 600, marginBottom: "0.4rem", fontSize: "0.875rem", color: "var(--text-muted)" }}>
+        {label}
+      </label>
       <input
         type="text"
         value={query}
         onChange={e => setQuery(e.target.value)}
         placeholder="Search player name…"
-        style={{ width: "100%", padding: "0.6rem 0.85rem", borderRadius: "var(--radius)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)", fontSize: "0.95rem", boxSizing: "border-box" }}
+        style={{
+          width: "100%", padding: "0.6rem 0.85rem", borderRadius: "var(--radius)",
+          border: "1px solid var(--border)", background: "var(--surface)",
+          color: "var(--text)", fontSize: "0.95rem", boxSizing: "border-box",
+        }}
       />
       {(results.length > 0 || loading) && (
-        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", zIndex: 50, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", overflow: "hidden" }}>
-          {loading && <div style={{ padding: "0.75rem 1rem", color: "var(--text-muted)", fontSize: "0.875rem" }}>Searching…</div>}
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0,
+          background: "var(--surface)", border: "1px solid var(--border)",
+          borderRadius: "var(--radius)", zIndex: 50,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.12)", overflow: "hidden",
+        }}>
+          {loading && (
+            <div style={{ padding: "0.75rem 1rem", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+              Searching…
+            </div>
+          )}
           {results.map(p => (
             <button
               key={p.id}
               onClick={() => { onSelect(p); setQuery(""); setResults([]); }}
-              style={{ display: "block", width: "100%", textAlign: "left", padding: "0.65rem 1rem", background: "none", border: "none", borderBottom: "1px solid var(--border)", cursor: "pointer", fontSize: "0.9rem" }}
+              style={{
+                display: "block", width: "100%", textAlign: "left",
+                padding: "0.65rem 1rem", background: "none", border: "none",
+                borderBottom: "1px solid var(--border)", cursor: "pointer", fontSize: "0.9rem",
+              }}
               onMouseEnter={e => e.currentTarget.style.background = "var(--bg)"}
               onMouseLeave={e => e.currentTarget.style.background = "none"}
             >
               <span style={{ fontWeight: 600 }}>{p.name}</span>
-              <span style={{ color: "var(--text-muted)", marginLeft: "0.5rem", fontSize: "0.8rem" }}>{p.team} · {p.year}</span>
+              <span style={{ color: "var(--text-muted)", marginLeft: "0.5rem", fontSize: "0.8rem" }}>
+                {p.team} · {p.year}
+              </span>
             </button>
           ))}
         </div>
@@ -130,37 +159,60 @@ function StatRow({ stat, playerA, playerB }) {
   const pctB = playerB.statPcts?.[stat];
   const winner = getWinner(stat, valA, valB);
 
-  const barA = pctA ?? 0;
-  const barB = pctB ?? 0;
-
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 1fr", gap: "0.5rem", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid var(--border)" }}>
+    <div style={{
+      display: "grid", gridTemplateColumns: "1fr 160px 1fr",
+      gap: "0.5rem", alignItems: "center",
+      padding: "0.5rem 0", borderBottom: "1px solid var(--border)",
+    }}>
       {/* Left player */}
       <div style={{ textAlign: "right" }}>
-        <span style={{ fontWeight: winner === "A" ? 700 : 400, color: winner === "A" ? "var(--primary)" : "var(--text)" }}>
+        <span style={{
+          fontWeight: winner === "A" ? 700 : 400,
+          color: winner === "A" ? "var(--primary)" : "var(--text)",
+        }}>
           {winner === "A" && <span style={{ marginRight: "0.3rem" }}>✓</span>}
           {formatVal(stat, valA)}
-          {pctA != null && <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "0.3rem" }}>({ordinal(pctA)})</span>}
+          {pctA != null && (
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "0.3rem" }}>
+              ({ordinal(pctA)})
+            </span>
+          )}
         </span>
         <div style={{ height: "4px", background: "var(--bg)", borderRadius: "2px", marginTop: "4px", overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${barA}%`, background: winner === "A" ? "var(--primary)" : "var(--text-muted)", borderRadius: "2px", marginLeft: "auto" }} />
+          <div style={{
+            height: "100%", width: `${pctA ?? 0}%`,
+            background: winner === "A" ? "var(--primary)" : "var(--text-muted)",
+            borderRadius: "2px", marginLeft: "auto",
+          }} />
         </div>
       </div>
 
-      {/* Stat name */}
+      {/* Stat label */}
       <div style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--text-muted)", fontWeight: 600 }}>
         {STAT_LABELS[stat] || stat}
       </div>
 
       {/* Right player */}
       <div style={{ textAlign: "left" }}>
-        <span style={{ fontWeight: winner === "B" ? 700 : 400, color: winner === "B" ? "var(--primary)" : "var(--text)" }}>
+        <span style={{
+          fontWeight: winner === "B" ? 700 : 400,
+          color: winner === "B" ? "var(--primary)" : "var(--text)",
+        }}>
           {formatVal(stat, valB)}
-          {pctB != null && <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "0.3rem" }}>({ordinal(pctB)})</span>}
+          {pctB != null && (
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginLeft: "0.3rem" }}>
+              ({ordinal(pctB)})
+            </span>
+          )}
           {winner === "B" && <span style={{ marginLeft: "0.3rem" }}>✓</span>}
         </span>
         <div style={{ height: "4px", background: "var(--bg)", borderRadius: "2px", marginTop: "4px", overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${barB}%`, background: winner === "B" ? "var(--primary)" : "var(--text-muted)", borderRadius: "2px" }} />
+          <div style={{
+            height: "100%", width: `${pctB ?? 0}%`,
+            background: winner === "B" ? "var(--primary)" : "var(--text-muted)",
+            borderRadius: "2px",
+          }} />
         </div>
       </div>
     </div>
@@ -169,8 +221,6 @@ function StatRow({ stat, playerA, playerB }) {
 
 export default function ComparePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-
   const [playerA, setPlayerA] = useState(null);
   const [playerB, setPlayerB] = useState(null);
   const [data, setData] = useState(null);
@@ -209,7 +259,7 @@ export default function ComparePage() {
     else if (!p) setSearchParams(playerA ? { p1: playerA.id } : {});
   }
 
-  // Tally wins
+  // Tally wins across all stat groups
   let scoreA = 0, scoreB = 0;
   if (data) {
     for (const group of STAT_GROUPS) {
@@ -228,9 +278,19 @@ export default function ComparePage() {
       <Header />
       <main className="container" style={{ maxWidth: 860, padding: "1.5rem 1rem" }}>
         <Link to="/" className="back-link">← Back to Search</Link>
-        <h1 className="page-title" style={{ marginBottom: "1.5rem" }}>Compare Players</h1>
 
-        {/* Search row */}
+        {/* Title row with leaderboard link */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+          <h1 className="page-title" style={{ margin: 0 }}>Compare Players</h1>
+          <Link
+            to="/compare/leaderboard"
+            style={{ fontSize: "0.875rem", color: "var(--primary)", fontWeight: 600, textDecoration: "none" }}
+          >
+            🏆 Leaderboard →
+          </Link>
+        </div>
+
+        {/* Player search inputs */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "2rem" }}>
           <PlayerSearch label="Player 1" onSelect={handleSelectA} selected={playerA} excludeId={playerB?.id} />
           <PlayerSearch label="Player 2" onSelect={handleSelectB} selected={playerB} excludeId={playerA?.id} />
@@ -242,17 +302,47 @@ export default function ComparePage() {
         {data && (
           <>
             {/* Score banner */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "1rem", alignItems: "center", background: "var(--surface)", borderRadius: "var(--radius)", padding: "1.25rem", marginBottom: "2rem", boxShadow: "var(--shadow)" }}>
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "1rem",
+              alignItems: "center", background: "var(--surface)", borderRadius: "var(--radius)",
+              padding: "1.25rem", marginBottom: "2rem", boxShadow: "var(--shadow)",
+            }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "2.5rem", fontWeight: 700, color: scoreA > scoreB ? "var(--primary)" : "var(--text)" }}>{scoreA}</div>
-                <div style={{ fontWeight: 700, fontSize: "1rem" }}>{data.playerA.name}</div>
-                <div style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>{data.playerA.team} · {data.playerA.year}</div>
+                <div style={{
+                  fontSize: "2.5rem", fontWeight: 700,
+                  color: scoreA > scoreB ? "var(--primary)" : "var(--text)",
+                }}>
+                  {scoreA}
+                </div>
+                <Link
+                  to={`/player/${data.playerA.id}`}
+                  style={{ fontWeight: 700, fontSize: "1rem", color: "var(--primary)", textDecoration: "none" }}
+                >
+                  {data.playerA.name}
+                </Link>
+                <div style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
+                  {data.playerA.team} · {data.playerA.year}
+                </div>
               </div>
-              <div style={{ textAlign: "center", fontSize: "1.25rem", fontWeight: 700, color: "var(--text-muted)" }}>vs</div>
+              <div style={{ textAlign: "center", fontSize: "1.25rem", fontWeight: 700, color: "var(--text-muted)" }}>
+                vs
+              </div>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "2.5rem", fontWeight: 700, color: scoreB > scoreA ? "var(--primary)" : "var(--text)" }}>{scoreB}</div>
-                <div style={{ fontWeight: 700, fontSize: "1rem" }}>{data.playerB.name}</div>
-                <div style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>{data.playerB.team} · {data.playerB.year}</div>
+                <div style={{
+                  fontSize: "2.5rem", fontWeight: 700,
+                  color: scoreB > scoreA ? "var(--primary)" : "var(--text)",
+                }}>
+                  {scoreB}
+                </div>
+                <Link
+                  to={`/player/${data.playerB.id}`}
+                  style={{ fontWeight: 700, fontSize: "1rem", color: "var(--primary)", textDecoration: "none" }}
+                >
+                  {data.playerB.name}
+                </Link>
+                <div style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
+                  {data.playerB.team} · {data.playerB.year}
+                </div>
               </div>
             </div>
 
@@ -264,10 +354,16 @@ export default function ComparePage() {
               if (visibleStats.length === 0) return null;
               return (
                 <div key={group.label} style={{ marginBottom: "2rem" }}>
-                  <h2 style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+                  <h2 style={{
+                    fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase",
+                    letterSpacing: "0.08em", color: "var(--text-muted)", marginBottom: "0.5rem",
+                  }}>
                     {group.label}
                   </h2>
-                  <div style={{ background: "var(--surface)", borderRadius: "var(--radius)", padding: "0 1rem", boxShadow: "var(--shadow)" }}>
+                  <div style={{
+                    background: "var(--surface)", borderRadius: "var(--radius)",
+                    padding: "0 1rem", boxShadow: "var(--shadow)",
+                  }}>
                     {visibleStats.map(stat => (
                       <StatRow key={stat} stat={stat} playerA={data.playerA} playerB={data.playerB} />
                     ))}
