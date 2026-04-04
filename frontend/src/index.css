@@ -421,6 +421,8 @@ td {
   padding: 0.7rem 1rem;
   border-bottom: 1px solid var(--border);
   color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
 }
 
 tbody tr:last-child td { border-bottom: none; }
