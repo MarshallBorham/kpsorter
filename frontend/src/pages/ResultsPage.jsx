@@ -97,8 +97,8 @@ export default function ResultsPage() {
                         </p>
         )}
 
-        {loading && <p className="status-msg">⏳ Loading players…</p>}
-        {error && <p className="status-msg error">⚠️ {error}</p>}
+        {loading && <p className="status-msg">Loading players…</p>}
+        {error && <p className="status-msg error">{error}</p>}
 
         {!loading && !error && (
           <>

@@ -285,7 +285,7 @@ export default function ComparePage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
           <h1 className="page-title" style={{ margin: 0 }}>Compare Players</h1>
           <Link to="/compare/leaderboard" style={{ fontFamily: MONO, fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--primary)", textDecoration: "none" }}>
-            🏆 Leaderboard →
+            Leaderboard →
           </Link>
         </div>
 
@@ -294,8 +294,8 @@ export default function ComparePage() {
           <PlayerSearch label="Player 2" onSelect={handleSelectB} selected={playerB} excludeId={playerA?.id} />
         </div>
 
-        {loading && <p className="status-msg">⏳ Loading comparison…</p>}
-        {error && <p className="status-msg error">⚠️ {error}</p>}
+        {loading && <p className="status-msg">Loading comparison…</p>}
+        {error && <p className="status-msg error">{error}</p>}
 
         {data && (
           <>

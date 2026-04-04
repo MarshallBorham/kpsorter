@@ -22,13 +22,16 @@ export default function Header() {
   return (
     <header className="header">
       <div className="header-inner">
-        <NavLink to="/" className="logo">🏀 Player Finder</NavLink>
+        <NavLink to="/" className="logo">CBB Sorter</NavLink>
         <nav className="nav" aria-label="Main navigation">
           <NavLink to="/" end className={({ isActive }) => isActive ? "active" : ""}>Search</NavLink>
           <NavLink to="/compare" className={({ isActive }) => isActive ? "active" : ""}>Compare</NavLink>
           {!isGuest && (
             <NavLink to="/watchlist" className={({ isActive }) => isActive ? "active" : ""}>Watchlist</NavLink>
           )}
+
+          <div style={{ width: "1px", height: "16px", background: "var(--border)", margin: "0 0.5rem" }} />
+
           <label className="dark-toggle">
             <input
               type="checkbox"
@@ -36,15 +39,17 @@ export default function Header() {
               onChange={(e) => setDarkMode(e.target.checked)}
               aria-label="Toggle dark mode"
             />
-            Dark mode
+            Dark
           </label>
-          {isGuest ? (
-            <span style={{ color: "var(--text-muted)", fontSize: "0.7rem", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Guest</span>
-            ) : (
-            <span style={{ color: "var(--text-muted)", fontSize: "0.7rem", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              {username}
-            </span>
-          )}
+
+          <span style={{
+            fontFamily: "var(--font-mono)", color: "var(--text-muted)",
+            fontSize: "0.7rem", letterSpacing: "0.06em", textTransform: "uppercase",
+            padding: "0 0.25rem",
+          }}>
+            {isGuest ? "Guest" : username}
+          </span>
+
           <button className="btn-logout" onClick={handleLogout}>
             {isGuest ? "Sign In" : "Logout"}
           </button>

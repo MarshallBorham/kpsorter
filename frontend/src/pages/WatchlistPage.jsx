@@ -66,8 +66,8 @@ export default function WatchlistPage() {
         <Link to="/" className="back-link">← Back to Search</Link>
         <h1 className="page-title">My Watchlist</h1>
 
-        {loading && <p className="status-msg">⏳ Loading watchlist…</p>}
-        {error && <p className="status-msg error">⚠️ {error}</p>}
+        {loading && <p className="status-msg">Loading watchlist…</p>}
+        {error && <p className="status-msg error">{error}</p>}
 
         {!loading && !error && watchlist.length === 0 && (
           <div className="empty">

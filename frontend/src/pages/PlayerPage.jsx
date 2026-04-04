@@ -121,8 +121,8 @@ export default function PlayerPage() {
       <main className="container" style={{ maxWidth: 860, padding: "1.5rem 1rem" }}>
         <Link to="/" className="back-link">← Back to Search</Link>
 
-        {loading && <p className="status-msg">⏳ Loading player…</p>}
-        {error && <p className="status-msg error">⚠️ {error}</p>}
+        {loading && <p className="status-msg">Loading player…</p>}
+        {error && <p className="status-msg error">{error}</p>}
 
         {player && (
           <>
@@ -165,7 +165,7 @@ export default function PlayerPage() {
                       color: "var(--primary)", textDecoration: "none",
                     }}
                   >
-                    ⚔️ Compare →
+                    Compare →
                   </Link>
                 </div>
               </div>

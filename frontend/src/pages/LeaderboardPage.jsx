@@ -40,8 +40,8 @@ export default function LeaderboardPage() {
           Rankings based on head-to-head comparison battles across the site and Discord bot.
         </p>
 
-        {loading && <p className="status-msg">⏳ Loading leaderboard…</p>}
-        {error && <p className="status-msg error">⚠️ {error}</p>}
+        {loading && <p className="status-msg">Loading leaderboard…</p>}
+        {error && <p className="status-msg error">{error}</p>}
 
         {!loading && !error && leaderboard.length === 0 && (
           <p style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "3rem" }}>
