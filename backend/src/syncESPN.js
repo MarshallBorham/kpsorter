@@ -27,7 +27,7 @@ while (true) {
 }
 console.log(`Found ${allTeams.length} teams`);
 
-// Step 2: Get roster for each team
+// Step 2: Get roster for each team — collect ESPN IDs + names
 console.log("Fetching rosters...");
 const espnPlayers = {};
 
@@ -54,80 +54,8 @@ for (let i = 0; i < allTeams.length; i++) {
 }
 console.log(`Total players found across all rosters: ${Object.keys(espnPlayers).length}`);
 
-// Step 3: Fetch PPG/RPG/APG from leaders endpoint and resolve athlete names
-console.log("Fetching leaders (PPG, RPG, APG)...");
-const leadersRes = await fetch(`https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/2026/types/2/leaders?limit=1000`);
-const leadersData = await leadersRes.json();
-
-const STAT_MAP = {
-  pointsPerGame:   "PPG",
-  reboundsPerGame: "RPG",
-  assistsPerGame:  "APG",
-};
-
-const athleteStatByName = {};
-let skippedLowGames = 0;
-
-for (const category of leadersData.categories) {
-  const statKey = STAT_MAP[category.name];
-  if (!statKey) continue;
-  console.log(`  Processing ${category.name}: ${category.leaders.length} leaders...`);
-
-  for (let i = 0; i < category.leaders.length; i++) {
-    const leader = category.leaders[i];
-    const athleteRef = leader.athlete?.["$ref"];
-    const teamRef = leader.team?.["$ref"];
-    const statsRef = leader.statistics?.["$ref"];
-    if (!athleteRef) continue;
-
-    try {
-      const [athleteRes, teamRes, statsRes] = await Promise.all([
-        fetch(athleteRef),
-        teamRef ? fetch(teamRef) : Promise.resolve(null),
-        statsRef ? fetch(statsRef) : Promise.resolve(null),
-      ]);
-
-      const athleteData = await athleteRes.json();
-      const teamData = teamRes ? await teamRes.json() : null;
-      const statsData = statsRes ? await statsRes.json() : null;
-
-      const name = athleteData.fullName || athleteData.displayName || "";
-      const team = teamData?.displayName || teamData?.name || "";
-
-      if (!name) continue;
-
-      // Check games played — skip players with fewer than 10 games
-      let gamesPlayed = 0;
-      if (statsData?.splits?.categories) {
-        for (const cat of statsData.splits.categories) {
-          const gpStat = cat.stats?.find(s => s.name === "gamesPlayed");
-          if (gpStat) { gamesPlayed = gpStat.value; break; }
-        }
-      }
-
-      if (gamesPlayed < 10) {
-        console.log(`  Skipping ${name} (${team}) — only ${gamesPlayed} games played`);
-        skippedLowGames++;
-        continue;
-      }
-
-      const key = `${name}|${team}`;
-      if (!athleteStatByName[key]) athleteStatByName[key] = {};
-      athleteStatByName[key][statKey] = leader.value;
-
-      if ((i + 1) % 50 === 0) console.log(`    Fetched ${i + 1}/${category.leaders.length} athletes...`);
-      await delay(30);
-    } catch {
-      // silently skip
-    }
-  }
-}
-
-console.log(`Resolved stats for ${Object.keys(athleteStatByName).length} unique name+team combinations`);
-console.log(`Skipped ${skippedLowGames} entries with fewer than 10 games played`);
-
-// Step 4: Load DB players
-console.log("Loading database players for matching...");
+// Step 3: Load DB players for matching
+console.log("Loading database players...");
 const allDbPlayers = await Player.find({}, "name team _id").lean();
 console.log(`Loaded ${allDbPlayers.length} players from database`);
 
@@ -168,15 +96,12 @@ function schoolMatches(a, b) {
 }
 
 function findDbPlayer(espnName, espnTeam) {
-  // 1. Exact name + team
   let player = allDbPlayers.find(p => p.name === espnName && p.team === espnTeam);
   if (player) return { player, fuzzy: false };
 
-  // 2. Exact name only
   player = allDbPlayers.find(p => p.name === espnName);
   if (player) return { player, fuzzy: false };
 
-  // 3. Fuzzy — skip if no team to validate against
   if (!espnTeam || espnTeam.trim() === "") return null;
 
   const espnFirst = normalizeName(espnName.split(" ")[0] || "");
@@ -206,22 +131,24 @@ function findDbPlayer(espnName, espnTeam) {
   return null;
 }
 
-// Step 5: Match roster players to DB and look up their stats by name+team
-console.log("Matching and updating players...");
+// Step 4: Fetch stats directly for each ESPN player by athlete ID
+console.log("Fetching individual player stats from ESPN...");
 
 let matched = 0;
 let fuzzyMatched = 0;
 let unmatched = 0;
 let noStats = 0;
+let skippedLowGames = 0;
 const processedDbIds = new Set();
 
 const rosterIds = Object.keys(espnPlayers);
-console.log(`Processing ${rosterIds.length} roster players...`);
+console.log(`Processing ${rosterIds.length} players...`);
 
 for (let i = 0; i < rosterIds.length; i++) {
   const espnId = rosterIds[i];
   const espn = espnPlayers[espnId];
 
+  // Match to DB player first — skip if no match to avoid wasting API calls
   const result = findDbPlayer(espn.name, espn.team);
   if (!result) {
     unmatched++;
@@ -229,43 +156,79 @@ for (let i = 0; i < rosterIds.length; i++) {
   }
 
   const { player, fuzzy } = result;
-
   if (processedDbIds.has(String(player._id))) continue;
-  processedDbIds.add(String(player._id));
 
-  // Look up stats by verified name+team key
-  const nameKey = `${espn.name}|${espn.team}`;
-  const stats = athleteStatByName[nameKey];
+  // Fetch this player's stats directly using their ESPN athlete ID
+  try {
+    const statsRes = await fetch(
+      `https://sports.core.api.espn.com/v2/sports/basketball/leagues/mens-college-basketball/seasons/2026/types/2/athletes/${espnId}/statistics`
+    );
 
-  if (!stats) {
+    if (!statsRes.ok) {
+      noStats++;
+      await delay(30);
+      continue;
+    }
+
+    const statsData = await statsRes.json();
+
+    // Extract PPG, RPG, APG and games played from the splits
+    let ppg = null, rpg = null, apg = null, gamesPlayed = 0;
+
+    for (const category of statsData.splits?.categories || []) {
+      for (const stat of category.stats || []) {
+        if (stat.name === "avgPoints")   ppg = stat.value;
+        if (stat.name === "avgRebounds") rpg = stat.value;
+        if (stat.name === "avgAssists")  apg = stat.value;
+        if (stat.name === "gamesPlayed") gamesPlayed = stat.value;
+      }
+    }
+
+    if (gamesPlayed < 10) {
+      skippedLowGames++;
+      await delay(30);
+      continue;
+    }
+
+    if (ppg == null && rpg == null && apg == null) {
+      noStats++;
+      await delay(30);
+      continue;
+    }
+
+    processedDbIds.add(String(player._id));
+
+    const update = {};
+    if (ppg != null) update["stats.PPG"] = Math.round(ppg * 10) / 10;
+    if (rpg != null) update["stats.RPG"] = Math.round(rpg * 10) / 10;
+    if (apg != null) update["stats.APG"] = Math.round(apg * 10) / 10;
+
+    await Player.updateOne({ _id: player._id }, { $set: update });
+
+    if (fuzzy) {
+      fuzzyMatched++;
+      if (fuzzyMatched <= 30) console.log(`Fuzzy: "${espn.name}" (${espn.team}) → "${player.name}" (${player.team})`);
+    }
+    matched++;
+
+    if ((i + 1) % 200 === 0) {
+      console.log(`  Progress: ${i + 1}/${rosterIds.length} processed — ${matched} updated, ${unmatched} unmatched, ${noStats} no stats...`);
+    }
+
+    await delay(40);
+  } catch (err) {
     noStats++;
-    continue;
-  }
-
-  const update = {};
-  for (const [key, value] of Object.entries(stats)) {
-    update[`stats.${key}`] = value;
-  }
-
-  await Player.updateOne({ _id: player._id }, { $set: update });
-
-  if (fuzzy) {
-    fuzzyMatched++;
-    if (fuzzyMatched <= 30) console.log(`Fuzzy: "${espn.name}" (${espn.team}) → "${player.name}" (${player.team})`);
-  }
-  matched++;
-
-  if ((matched + unmatched) % 200 === 0) {
-    console.log(`  Progress: ${matched} matched, ${unmatched} unmatched, ${noStats} no stats...`);
+    await delay(40);
   }
 }
 
 console.log(`\nResults:`);
-console.log(`  Exact matched: ${matched - fuzzyMatched}`);
-console.log(`  Fuzzy matched: ${fuzzyMatched}`);
+console.log(`  Exact matched + updated: ${matched - fuzzyMatched}`);
+console.log(`  Fuzzy matched + updated: ${fuzzyMatched}`);
 console.log(`  Unmatched (not in our DB): ${unmatched}`);
-console.log(`  Matched but not in top leaders: ${noStats}`);
-console.log(`  Total updated with ESPN stats: ${matched}`);
+console.log(`  No stats available: ${noStats}`);
+console.log(`  Skipped < 10 games: ${skippedLowGames}`);
+console.log(`  Total updated: ${matched}`);
 
 await mongoose.disconnect();
 console.log("\nDone");
