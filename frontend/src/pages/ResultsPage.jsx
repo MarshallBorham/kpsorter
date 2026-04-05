@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import Header from "../components/Header.jsx";
-import PlayerModal from "../components/PlayerModal.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 
 function formatVal(stat, val) {
@@ -32,7 +31,6 @@ export default function ResultsPage() {
   const [saved, setSaved] = useState(new Set());
   const [saving, setSaving] = useState(null);
   const [showAll, setShowAll] = useState(false);
-  const [modalPlayerId, setModalPlayerId] = useState(null);
 
   useEffect(() => {
     async function fetchPlayers() {
@@ -123,25 +121,20 @@ export default function ResultsPage() {
                     <tr key={player.id}>
                       <td className="rank">{index + 1}</td>
                       <td>
-                        <button
-                          onClick={() => setModalPlayerId(player.id)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            padding: 0,
-                            color: "var(--primary)",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            textDecoration: "none",
-                            fontSize: "inherit",
-                            textAlign: "left",
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = "var(--error)"}
-                          onMouseLeave={(e) => e.currentTarget.style.color = "var(--primary)"}
-                        >
-                          {player.name}
-                        </button>
-                      </td>
+                                                       <Link
+                                                           to={`/player/${player.id}`}
+                                                                style={{
+                                                                color: "var(--primary)",
+                                                                fontWeight: 600,
+                                                                textDecoration: "none",
+                                                                fontSize: "inherit",
+                                                                 }}
+                                                           onMouseEnter={(e) => e.currentTarget.style.color = "var(--primary-dark)"}
+                                                           onMouseLeave={(e) => e.currentTarget.style.color = "var(--primary)"}
+                                                           >
+                                                           {player.name}
+                                                         </Link>
+                                                     </td>
                       <td>{player.team}</td>
                       <td>{player.position}</td>
                       <td>{player.year}</td>
@@ -198,13 +191,6 @@ export default function ResultsPage() {
           </>
         )}
       </main>
-
-      {modalPlayerId && (
-        <PlayerModal
-          playerId={modalPlayerId}
-          onClose={() => setModalPlayerId(null)}
-        />
-      )}
     </>
   );
 }
