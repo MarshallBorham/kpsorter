@@ -3,6 +3,8 @@ import cors from "cors";
 import mongoose from "mongoose";
 import path from "path";
 import { fileURLToPath } from "url";
+import { execFile } from "child_process";
+import cron from "node-cron";
 import { getEnvVar } from "./getEnvVar.js";
 import { authRouter } from "./routes/authRoutes.js";
 import { playerRouter } from "./routes/playerRoutes.js";
@@ -34,6 +36,22 @@ mongoose
       console.log(`Server running at http://localhost:${PORT}. CTRL+C to stop.`);
     });
     startBot();
+
+    // Run portal sync every 2 hours
+    cron.schedule("0 */2 * * *", () => {
+      console.log("[cron] Running scheduled portal sync...");
+      execFile("node", [path.join(__dirname, "syncPortal.js")], (err, stdout, stderr) => {
+        if (err) {
+          console.error("[cron] Portal sync failed:", err.message);
+          return;
+        }
+        if (stdout) console.log("[cron] Portal sync output:\n", stdout);
+        if (stderr) console.error("[cron] Portal sync stderr:\n", stderr);
+        console.log("[cron] Portal sync complete.");
+      });
+    });
+
+    console.log("Portal sync scheduled — runs every 6 hours.");
   })
   .catch((err) => {
     console.error("MongoDB connection failed:", err.message);
