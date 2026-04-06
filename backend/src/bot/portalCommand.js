@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { Player } from "../models/Player.js";
 
 const SITE = "https://cbb.up.railway.app";
@@ -42,7 +42,7 @@ const HM_TEAMS = new Set([
 // ── Command definition ────────────────────────────────────────────────────────
 export const portalCommand = new SlashCommandBuilder()
   .setName("portal")
-  .setDescription("Browse transfer portal players sorted by BPM")
+  .setDescription("Browse transfer portal players sorted by BPR")
   .addStringOption(opt =>
     opt.setName("positions")
       .setDescription("Filter by position(s): PG, SG, SF, PF, C — comma-separated, e.g. PG,SG")
@@ -60,7 +60,7 @@ export const portalCommand = new SlashCommandBuilder()
 const PAGE_SIZE = 10;
 const MAX_PAGES = 5;
 
-function buildEmbed(players, page, total, posFilter, hmFilter) {
+function buildContent(players, page, total, posFilter, hmFilter) {
   const start      = page * PAGE_SIZE;
   const slice      = players.slice(start, start + PAGE_SIZE);
   const totalPages = Math.min(Math.ceil(total / PAGE_SIZE), MAX_PAGES);
@@ -74,10 +74,7 @@ function buildEmbed(players, page, total, posFilter, hmFilter) {
     const yr     = p.year     ?? "—";
     const url    = `${SITE}/player/${p.id}`;
 
-    return (
-      `**${rank}. [${p.name}](${url})**\n` +
-      `${team} · ${pos} · ${yr} · BPR ${bprStr}`
-    );
+    return `**${rank}. [${p.name}](${url})** — ${team} · ${pos} · ${yr} · BPR ${bprStr}`;
   });
 
   const filterParts = [];
@@ -85,13 +82,9 @@ function buildEmbed(players, page, total, posFilter, hmFilter) {
   if (hmFilter === "hm")     filterParts.push("HM Only");
   if (hmFilter === "non_hm") filterParts.push("Non-HM Only");
   const filterStr = filterParts.length ? `*Filters: ${filterParts.join(" | ")}*\n\n` : "";
+  const footer    = `\n-# Page ${page + 1} of ${totalPages} · ${total} players`;
 
-  return new EmbedBuilder()
-    .setTitle("🔀 Transfer Portal — Top BPR")
-    .setColor(0x00b4d8)
-    .setURL(`${SITE}/portal`)
-    .setDescription(filterStr + lines.join("\n"))
-    .setFooter({ text: `Page ${page + 1} of ${totalPages} · ${total} players` });
+  return `🔀 **Transfer Portal — Top BPR**\n\n` + filterStr + lines.join("\n") + footer;
 }
 
 function buildRow(page, totalPages, disabled = false) {
@@ -111,7 +104,7 @@ function buildRow(page, totalPages, disabled = false) {
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 export async function handlePortal(interaction) {
-  await interaction.deferReply(); // public — no ephemeral
+  await interaction.deferReply();
 
   // Parse position filter
   const posInput  = interaction.options.getString("positions") ?? "";
@@ -150,8 +143,8 @@ export async function handlePortal(interaction) {
     return bprB - bprA;
   });
 
-  const capped    = filtered.slice(0, MAX_PAGES * PAGE_SIZE);
-  const total     = capped.length;
+  const capped     = filtered.slice(0, MAX_PAGES * PAGE_SIZE);
+  const total      = capped.length;
   const totalPages = Math.min(Math.ceil(total / PAGE_SIZE), MAX_PAGES);
 
   if (total === 0) {
@@ -162,7 +155,7 @@ export async function handlePortal(interaction) {
   let page = 0;
 
   const reply = await interaction.editReply({
-    embeds: [buildEmbed(capped, page, total, posFilter, hmFilter)],
+    content: buildContent(capped, page, total, posFilter, hmFilter),
     components: totalPages > 1 ? [buildRow(page, totalPages)] : [],
   });
 
@@ -178,7 +171,7 @@ export async function handlePortal(interaction) {
     if (btn.customId === "portal_prev") page = Math.max(0, page - 1);
     if (btn.customId === "portal_next") page = Math.min(totalPages - 1, page + 1);
     await btn.update({
-      embeds: [buildEmbed(capped, page, total, posFilter, hmFilter)],
+      content: buildContent(capped, page, total, posFilter, hmFilter),
       components: [buildRow(page, totalPages)],
     });
   });
