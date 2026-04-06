@@ -12,6 +12,7 @@ const validStats = [
   "FC40", "Close2PM", "Close2PA", "Close2P",
   "Far2PM", "Far2PA", "Far2P", "DunksAtt", "DunksMade", "DunkPct",
   "BPM", "OBPM", "DBPM", "3P100",
+  "OBPR", "DBPR", "BPR",
 ];
 
 const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
@@ -33,6 +34,37 @@ const HM_TEAMS = new Set([
   "Oklahoma State", "TCU", "Texas Tech", "UCF", "Utah", "West Virginia",
 ]);
 
+// ── Portal position map ───────────────────────────────────────────────────────
+const PORTAL_POS_MAP = {
+  "Pure PG":    ["PG"],
+  "Scoring PG": ["PG"],
+  "Combo G":    ["PG", "SG"],
+  "Wing G":     ["SG", "SF"],
+  "Wing F":     ["SF", "PF"],
+  "Stretch 4":  ["PF"],
+  "PF/CF":      ["PF", "C"],
+  "PF/C":       ["PF", "C"],
+  "Center":     ["C"],
+};
+
+// ── Conference map ────────────────────────────────────────────────────────────
+const PORTAL_CONFERENCE_MAP = {
+  ACC:             new Set(["California","Clemson","Duke","Florida State","Georgia Tech","Louisville","Miami","North Carolina","NC State","Notre Dame","Pittsburgh","SMU","Stanford","Syracuse","Virginia","Virginia Tech","Wake Forest","Boston College"]),
+  "Big Ten":       new Set(["Illinois","Indiana","Iowa","Maryland","Michigan","Michigan State","Minnesota","Nebraska","Northwestern","Ohio State","Oregon","Penn State","Purdue","Rutgers","UCLA","USC","Washington","Wisconsin"]),
+  "Big 12":        new Set(["Arizona","Arizona State","Baylor","BYU","Cincinnati","Colorado","Houston","Iowa State","Kansas","Kansas State","Oklahoma State","TCU","Texas Tech","UCF","Utah","West Virginia","Texas"]),
+  SEC:             new Set(["Alabama","Arkansas","Auburn","Florida","Georgia","Kentucky","LSU","Mississippi State","Missouri","Oklahoma","Ole Miss","South Carolina","Tennessee","Texas A&M","Vanderbilt"]),
+  "Big East":      new Set(["Butler","UConn","Creighton","DePaul","Georgetown","Marquette","Providence","St. John's","Seton Hall","Villanova","Xavier"]),
+  "Mountain West": new Set(["Air Force","Boise State","Colorado State","Fresno State","Hawaii","Nevada","New Mexico","San Diego State","San Jose State","UNLV","Utah State","Wyoming"]),
+  AAC:             new Set(["Charlotte","East Carolina","Florida Atlantic","Memphis","North Texas","Rice","South Florida","Temple","Tulane","Tulsa","UAB","UTSA","Wichita State"]),
+  "Atlantic 10":   new Set(["Davidson","Dayton","Duquesne","Fordham","George Mason","George Washington","La Salle","Loyola Chicago","Massachusetts","Rhode Island","Richmond","Saint Joseph's","Saint Louis","VCU"]),
+  WCC:             new Set(["Gonzaga","Loyola Marymount","Pacific","Pepperdine","Portland","Saint Mary's","San Diego","San Francisco","Santa Clara"]),
+  MVC:             new Set(["Bradley","Drake","Evansville","Illinois State","Indiana State","Missouri State","Northern Iowa","Southern Illinois","UIC","Valparaiso"]),
+  MAC:             new Set(["Akron","Ball State","Bowling Green","Buffalo","Central Michigan","Eastern Michigan","Kent State","Miami OH","Northern Illinois","Ohio","Toledo","Western Michigan"]),
+  "Sun Belt":      new Set(["App State","Arkansas State","Coastal Carolina","Georgia Southern","Georgia State","James Madison","Louisiana","Marshall","Old Dominion","South Alabama","Southern Miss","Texas State","Troy","ULM"]),
+  Ivy:             new Set(["Brown","Columbia","Cornell","Dartmouth","Harvard","Penn","Princeton","Yale"]),
+  Patriot:         new Set(["American","Army","Boston University","Bucknell","Colgate","Holy Cross","Lafayette","Lehigh","Loyola Maryland","Navy"]),
+};
+
 function calcPercentiles(stat, pool, statsField) {
   const values = pool.map((p) => (p[statsField]?.[stat] ?? 0)).sort((a, b) => a - b);
   const total = values.length;
@@ -48,7 +80,7 @@ function calcPercentiles(stat, pool, statsField) {
   };
 }
 
-// GET /api/players — main search/ranking endpoint
+// ── GET /api/players — main search/ranking endpoint ───────────────────────────
 playerRouter.get("/", async (req, res) => {
   const { stats, filterMin, filters, classes, minHeight, maxHeight, portalOnly, hmFilter, top100 } = req.query;
 
@@ -182,7 +214,7 @@ playerRouter.get("/", async (req, res) => {
   }
 });
 
-// GET /api/players/search?q=... — name autocomplete for compare page
+// ── GET /api/players/search?q=... — name autocomplete ────────────────────────
 playerRouter.get("/search", async (req, res) => {
   const { q } = req.query;
   if (!q || q.length < 2) return res.status(400).json({ error: "Query too short" });
@@ -197,7 +229,7 @@ playerRouter.get("/search", async (req, res) => {
   }
 });
 
-// GET /api/players/compare?p1=ID&p2=ID — full side-by-side comparison with percentiles
+// ── GET /api/players/compare?p1=ID&p2=ID ─────────────────────────────────────
 playerRouter.get("/compare", async (req, res) => {
   const { p1, p2 } = req.query;
   if (!p1 || !p2) return res.status(400).json({ error: "p1 and p2 player IDs are required" });
@@ -249,7 +281,7 @@ playerRouter.get("/compare", async (req, res) => {
   }
 });
 
-// GET /api/players/leaderboard — comparison win/loss/tie totals
+// ── GET /api/players/leaderboard — comparison win/loss/tie totals ─────────────
 playerRouter.get("/leaderboard", async (req, res) => {
   try {
     const [winRows, lossRows, tieRows] = await Promise.all([
@@ -301,7 +333,7 @@ playerRouter.get("/leaderboard", async (req, res) => {
 
     const sorted = Object.entries(map)
       .sort((a, b) => b[1].wins - a[1].wins)
-      .slice(0, 500);
+      .slice(0, 50);
 
     const results = await Promise.all(
       sorted.map(async ([playerId, stats]) => {
@@ -321,7 +353,65 @@ playerRouter.get("/leaderboard", async (req, res) => {
   }
 });
 
-// GET /api/players/:playerId — single player profile (must be last)
+// ── GET /api/players/portal — transfer portal ranked by BPR ──────────────────
+playerRouter.get("/portal", async (req, res) => {
+  try {
+    const { positions, conference, classes } = req.query;
+
+    const posFilter   = positions ? positions.split(",").map(p => p.trim().toUpperCase()).filter(Boolean) : [];
+    const classFilter = classes   ? classes.split(",").map(c => c.trim()).filter(Boolean) : [];
+
+    let players = await Player.find({ inPortal: true }).lean();
+
+    // Position filter
+    if (posFilter.length) {
+      players = players.filter(p => {
+        const canonical = PORTAL_POS_MAP[p.position] ?? (p.position ? [p.position.toUpperCase()] : []);
+        return canonical.some(c => posFilter.includes(c));
+      });
+    }
+
+    // Conference filter
+    if (conference && PORTAL_CONFERENCE_MAP[conference]) {
+      const teams = PORTAL_CONFERENCE_MAP[conference];
+      players = players.filter(p => teams.has(p.team));
+    }
+
+    // Class filter
+    if (classFilter.length) {
+      players = players.filter(p => classFilter.includes(p.year));
+    }
+
+    // Sort by BPR descending, nulls last
+    players.sort((a, b) => {
+      const bprA = a.stats?.BPR ?? -Infinity;
+      const bprB = b.stats?.BPR ?? -Infinity;
+      return bprB - bprA;
+    });
+
+    const result = players.map(p => ({
+      id:       p.id,
+      name:     p.name,
+      position: p.position,
+      team:     p.team,
+      year:     p.year,
+      height:   p.height,
+      PPG:  p.stats?.PPG  ?? null,
+      RPG:  p.stats?.RPG  ?? null,
+      APG:  p.stats?.APG  ?? null,
+      BPR:  p.stats?.BPR  ?? null,
+      OBPR: p.stats?.OBPR ?? null,
+      DBPR: p.stats?.DBPR ?? null,
+    }));
+
+    res.json({ players: result, conferences: Object.keys(PORTAL_CONFERENCE_MAP) });
+  } catch (err) {
+    console.error("Portal route error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ── GET /api/players/:playerId — single player profile (must be last) ─────────
 playerRouter.get("/:playerId", async (req, res) => {
   try {
     const player = await Player.findOne({ id: req.params.playerId }).lean();

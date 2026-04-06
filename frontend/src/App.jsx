@@ -8,8 +8,7 @@ import WatchlistPage from "./pages/WatchlistPage.jsx";
 import ComparePage from "./pages/ComparePage.jsx";
 import PlayerPage from "./pages/PlayerPage.jsx";
 import LeaderboardPage from "./pages/LeaderboardPage.jsx";
-
-
+import PortalPage from "./pages/PortalPage.jsx";
 
 
 function ProtectedRoute({ children }) {
@@ -33,6 +32,7 @@ export default function App() {
       <Route path="/compare" element={<ComparePage />} />
       <Route path="/compare/leaderboard" element={<LeaderboardPage />} />
       <Route path="/player/:playerId" element={<PlayerPage />} />
+      <Route path="/portal" element={<PortalPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
