@@ -1,5 +1,7 @@
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { Player } from "../models/Player.js";
+
+const SITE = "https://cbb.up.railway.app";
 
 // ── Position mapping ──────────────────────────────────────────────────────────
 const POS_MAP = {
@@ -19,7 +21,7 @@ function canonicalPositions(rawPos) {
   return POS_MAP[rawPos] ?? [rawPos.toUpperCase()];
 }
 
-// ── HM teams (same set as index.js) ──────────────────────────────────────────
+// ── HM teams ──────────────────────────────────────────────────────────────────
 const HM_TEAMS = new Set([
   "California", "Clemson", "Duke", "Florida State", "Georgia Tech",
   "Louisville", "Miami", "North Carolina", "NC State", "Notre Dame",
@@ -54,37 +56,48 @@ export const portalCommand = new SlashCommandBuilder()
         { name: "Non-HM Only — non high-major schools only", value: "non_hm" },
       ));
 
-// ── Pagination helpers ────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 10;
 const MAX_PAGES = 5;
 
+// Pad a string to a fixed length (right-pad with spaces)
+function pad(str, len) {
+  return str.length >= len ? str.slice(0, len) : str + " ".repeat(len - str.length);
+}
+
 function buildEmbed(players, page, total, posFilter, hmFilter) {
-  const start = page * PAGE_SIZE;
-  const slice = players.slice(start, start + PAGE_SIZE);
+  const start      = page * PAGE_SIZE;
+  const slice      = players.slice(start, start + PAGE_SIZE);
   const totalPages = Math.min(Math.ceil(total / PAGE_SIZE), MAX_PAGES);
 
   const lines = slice.map((p, i) => {
-    const rank   = start + i + 1;
-    const bpm    = p.stats?.BPM ?? p.stats?.get?.("BPM");
-    const bpmStr = bpm != null ? bpm.toFixed(1) : "N/A";
-    const pos    = p.position ?? "—";
-    const yr     = p.year     ?? "—";
-    const ht     = p.height   ?? "—";
-    return `**${rank}. ${p.name}** — ${p.team}\n` +
-           `\`${pos} · ${yr} · ${ht} · BPM ${bpmStr}\``;
+    const rank    = start + i + 1;
+    const bpr     = p.stats?.BPR ?? p.stats?.get?.("BPR");
+    const bprStr  = bpr != null ? (bpr >= 0 ? `+${bpr.toFixed(1)}` : bpr.toFixed(1)) : "N/A";
+    const team    = p.team     ?? "—";
+    const pos     = p.position ?? "—";
+    const yr      = p.year     ?? "—";
+    const url     = `${SITE}/player/${p.id}`;
+
+    // Clickable name, then one compact info line in monospace
+    return (
+      `**${rank}.** [${p.name}](${url})\n` +
+      `\`${pad(team, 22)}${pad(pos, 16)}${pad(yr, 6)}BPR ${bprStr}\``
+    );
   });
 
   const filterParts = [];
   if (posFilter.length)      filterParts.push(`Positions: ${posFilter.join(", ")}`);
   if (hmFilter === "hm")     filterParts.push("HM Only");
   if (hmFilter === "non_hm") filterParts.push("Non-HM Only");
-  const filterStr = filterParts.length ? `\n*Filters: ${filterParts.join(" | ")}*` : "";
+  const filterStr = filterParts.length ? `*Filters: ${filterParts.join(" | ")}*\n\n` : "";
 
   return new EmbedBuilder()
-    .setTitle("🔀 Transfer Portal — Top BPM")
+    .setTitle("🔀 Transfer Portal — Top BPR")
     .setColor(0x00b4d8)
-    .setDescription(lines.join("\n\n") + filterStr)
-    .setFooter({ text: `Page ${page + 1} of ${totalPages} · ${total} players total` });
+    .setURL(`${SITE}/portal`)
+    .setDescription(filterStr + lines.join("\n"))
+    .setFooter({ text: `Page ${page + 1} of ${totalPages} · ${total} players` });
 }
 
 function buildRow(page, totalPages, disabled = false) {
@@ -104,7 +117,7 @@ function buildRow(page, totalPages, disabled = false) {
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 export async function handlePortal(interaction) {
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await interaction.deferReply(); // public — no ephemeral
 
   // Parse position filter
   const posInput  = interaction.options.getString("positions") ?? "";
@@ -136,15 +149,16 @@ export async function handlePortal(interaction) {
     return true;
   });
 
-  // Sort by BPM descending
+  // Sort by BPR descending
   filtered.sort((a, b) => {
-    const bpmA = a.stats?.BPM ?? a.stats?.get?.("BPM") ?? -Infinity;
-    const bpmB = b.stats?.BPM ?? b.stats?.get?.("BPM") ?? -Infinity;
-    return bpmB - bpmA;
+    const bprA = a.stats?.BPR ?? -Infinity;
+    const bprB = b.stats?.BPR ?? -Infinity;
+    return bprB - bprA;
   });
 
-  const capped = filtered.slice(0, MAX_PAGES * PAGE_SIZE);
-  const total  = capped.length;
+  const capped    = filtered.slice(0, MAX_PAGES * PAGE_SIZE);
+  const total     = capped.length;
+  const totalPages = Math.min(Math.ceil(total / PAGE_SIZE), MAX_PAGES);
 
   if (total === 0) {
     await interaction.editReply({ content: "❌ No portal players found matching those filters." });
@@ -152,7 +166,6 @@ export async function handlePortal(interaction) {
   }
 
   let page = 0;
-  const totalPages = Math.min(Math.ceil(total / PAGE_SIZE), MAX_PAGES);
 
   const reply = await interaction.editReply({
     embeds: [buildEmbed(capped, page, total, posFilter, hmFilter)],
@@ -161,6 +174,7 @@ export async function handlePortal(interaction) {
 
   if (totalPages <= 1) return;
 
+  // Only the command invoker can flip pages
   const collector = reply.createMessageComponentCollector({
     filter: i => i.user.id === interaction.user.id,
     time: 5 * 60 * 1000,
