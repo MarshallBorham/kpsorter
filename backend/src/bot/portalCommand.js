@@ -60,29 +60,23 @@ export const portalCommand = new SlashCommandBuilder()
 const PAGE_SIZE = 10;
 const MAX_PAGES = 5;
 
-// Pad a string to a fixed length (right-pad with spaces)
-function pad(str, len) {
-  return str.length >= len ? str.slice(0, len) : str + " ".repeat(len - str.length);
-}
-
 function buildEmbed(players, page, total, posFilter, hmFilter) {
   const start      = page * PAGE_SIZE;
   const slice      = players.slice(start, start + PAGE_SIZE);
   const totalPages = Math.min(Math.ceil(total / PAGE_SIZE), MAX_PAGES);
 
   const lines = slice.map((p, i) => {
-    const rank    = start + i + 1;
-    const bpr     = p.stats?.BPR ?? p.stats?.get?.("BPR");
-    const bprStr  = bpr != null ? (bpr >= 0 ? `+${bpr.toFixed(1)}` : bpr.toFixed(1)) : "N/A";
-    const team    = p.team     ?? "—";
-    const pos     = p.position ?? "—";
-    const yr      = p.year     ?? "—";
-    const url     = `${SITE}/player/${p.id}`;
+    const rank   = start + i + 1;
+    const bpr    = p.stats?.BPR ?? p.stats?.get?.("BPR");
+    const bprStr = bpr != null ? (bpr >= 0 ? `+${bpr.toFixed(1)}` : bpr.toFixed(1)) : "N/A";
+    const team   = p.team     ?? "—";
+    const pos    = p.position ?? "—";
+    const yr     = p.year     ?? "—";
+    const url    = `${SITE}/player/${p.id}`;
 
-    // Clickable name, then one compact info line in monospace
     return (
-      `**${rank}.** [${p.name}](${url})\n` +
-      `\`${pad(team, 22)}${pad(pos, 16)}${pad(yr, 6)}BPR ${bprStr}\``
+      `**${rank}. [${p.name}](${url})**\n` +
+      `${team} · ${pos} · ${yr} · BPR ${bprStr}`
     );
   });
 
