@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from "react-router";
+import { useEffect } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router";
 import { useAuth } from "./context/AuthContext.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
@@ -9,8 +10,17 @@ import ComparePage from "./pages/ComparePage.jsx";
 import PlayerPage from "./pages/PlayerPage.jsx";
 import LeaderboardPage from "./pages/LeaderboardPage.jsx";
 import PortalPage from "./pages/PortalPage.jsx";
-import DepthChartPage from "./pages/DepthChartPage.jsx";
 
+function usePageTracking() {
+  const location = useLocation();
+  useEffect(() => {
+    if (window.gtag) {
+      window.gtag("event", "page_view", {
+        page_path: location.pathname + location.search,
+      });
+    }
+  }, [location]);
+}
 
 function ProtectedRoute({ children }) {
   const { isLoggedIn } = useAuth();
@@ -23,6 +33,8 @@ function AuthOnlyRoute({ children }) {
 }
 
 export default function App() {
+  usePageTracking();
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
@@ -34,7 +46,6 @@ export default function App() {
       <Route path="/compare/leaderboard" element={<LeaderboardPage />} />
       <Route path="/player/:playerId" element={<PlayerPage />} />
       <Route path="/portal" element={<PortalPage />} />
-      <Route path="/depth-chart" element={<DepthChartPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
