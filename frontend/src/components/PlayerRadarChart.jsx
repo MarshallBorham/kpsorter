@@ -96,14 +96,14 @@ export default function PlayerRadarChart({ percentiles }) {
             cy="0"
             r={dataMaxR}
           >
-            <stop offset="0%" stopColor="var(--error)" stopOpacity="0.82" />
-            <stop offset="18%" stopColor="var(--error)" stopOpacity="0.72" />
-            <stop offset="28%" stopColor="#e07850" stopOpacity="0.62" />
-            <stop offset="42%" stopColor="var(--warning)" stopOpacity="0.52" />
-            <stop offset="55%" stopColor="#9bc969" stopOpacity="0.48" />
-            <stop offset="68%" stopColor="#6bc77a" stopOpacity="0.52" />
-            <stop offset="78%" stopColor="var(--success)" stopOpacity="0.58" />
-            <stop offset="100%" stopColor="var(--success)" stopOpacity="0.64" />
+            <stop offset="0%" stopColor="#ff3b30" stopOpacity="0.96" />
+            <stop offset="18%" stopColor="#f85149" stopOpacity="0.94" />
+            <stop offset="28%" stopColor="#ff6b3d" stopOpacity="0.92" />
+            <stop offset="42%" stopColor="#f5a623" stopOpacity="0.9" />
+            <stop offset="55%" stopColor="#c4e030" stopOpacity="0.88" />
+            <stop offset="68%" stopColor="#62d256" stopOpacity="0.9" />
+            <stop offset="78%" stopColor="#3fb950" stopOpacity="0.92" />
+            <stop offset="100%" stopColor="#2ea043" stopOpacity="0.94" />
           </radialGradient>
         </defs>
 
