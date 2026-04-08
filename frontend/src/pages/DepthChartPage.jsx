@@ -5,6 +5,12 @@ import Header from "../components/Header.jsx";
 const MONO = "var(--font-mono)";
 const SLOTS = ["PG", "SG", "SF", "PF", "C"];
 
+function heightClassLabel(height, year) {
+  const h = height != null && String(height).trim() !== "" ? String(height).trim() : "—";
+  const y = year != null && String(year).trim() !== "" ? String(year).trim() : "—";
+  return `(${h}, ${y})`;
+}
+
 export default function DepthChartPage() {
   const [conference, setConference] = useState("ACC");
   const [conferences, setConferences] = useState([]);
@@ -147,7 +153,11 @@ export default function DepthChartPage() {
                             >
                               <Link
                                 to={`/player/${pl.id}`}
-                                aria-label={pl.inPortal ? `${pl.name}, in transfer portal` : pl.name}
+                                aria-label={
+                                  pl.inPortal
+                                    ? `${pl.name} ${heightClassLabel(pl.height, pl.year)}, in transfer portal`
+                                    : `${pl.name} ${heightClassLabel(pl.height, pl.year)}`
+                                }
                                 style={{
                                   color: "var(--primary)",
                                   textDecoration: "none",
@@ -157,6 +167,10 @@ export default function DepthChartPage() {
                                 {pl.name}
                                 {pl.inPortal ? <span aria-hidden="true" style={{ color: "var(--text-muted)" }}>*</span> : null}
                               </Link>
+                              <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
+                                {" "}
+                                {heightClassLabel(pl.height, pl.year)}
+                              </span>
                             </li>
                           ))}
                           {(team.depth?.[slot] ?? []).length === 0 && (

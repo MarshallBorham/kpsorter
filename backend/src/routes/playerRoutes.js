@@ -78,6 +78,16 @@ function playerHeightInches(p) {
   return null;
 }
 
+/** Torvik-style height string for API/UI */
+function playerHeightDisplay(p) {
+  if (p.height != null && String(p.height).trim() !== "") return String(p.height).trim();
+  const inches = playerHeightInches(p);
+  if (inches == null) return null;
+  const ft = Math.floor(inches / 12);
+  const inn = inches % 12;
+  return `${ft}-${inn}`;
+}
+
 /** One slot per player for depth chart (distinct from portal multi-slot filter) */
 function depthChartSlotForPlayer(p) {
   const pos = p.position;
@@ -133,6 +143,7 @@ function buildTeamDepth(players) {
       name: pl.name,
       inPortal: !!pl.inPortal,
       year: pl.year,
+      height: playerHeightDisplay(pl),
       position: pl.position,
     }));
   }
