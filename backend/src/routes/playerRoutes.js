@@ -2,7 +2,11 @@ import express from "express";
 import { Player } from "../models/Player.js";
 import { ComparisonResult } from "../models/ComparisonResult.js";
 import { recordComparison } from "../utils/recordComparison.js";
-import { PORTAL_CONFERENCE_MAP } from "../data/portalConferenceMap.js";
+import {
+  PORTAL_CONFERENCE_MAP,
+  resolveCanonicalTeamName,
+  expandQueryTeamNames,
+} from "../data/portalConferenceMap.js";
 
 export const playerRouter = express.Router();
 
@@ -20,7 +24,7 @@ const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
 
 const HM_TEAMS = new Set([
   "California", "Clemson", "Duke", "Florida State", "Georgia Tech",
-  "Louisville", "Miami", "North Carolina", "NC State", "Notre Dame",
+  "Louisville", "Miami FL", "North Carolina", "NC State", "Notre Dame",
   "Pittsburgh", "SMU", "Stanford", "Syracuse", "Virginia", "Virginia Tech",
   "Wake Forest", "Butler", "UConn", "Creighton", "DePaul", "Georgetown",
   "Marquette", "Providence", "St. John's", "Seton Hall", "Villanova", "Xavier",
@@ -272,9 +276,9 @@ playerRouter.get("/", async (req, res) => {
       });
 
     if (hmFilter === "hm") {
-      ranked = ranked.filter((p) => HM_TEAMS.has(p.team));
+      ranked = ranked.filter((p) => resolveCanonicalTeamName(p.team, HM_TEAMS) != null);
     } else if (hmFilter === "non_hm") {
-      ranked = ranked.filter((p) => !HM_TEAMS.has(p.team));
+      ranked = ranked.filter((p) => resolveCanonicalTeamName(p.team, HM_TEAMS) == null);
     }
 
     res.json({ statList, results: ranked });
@@ -444,7 +448,7 @@ playerRouter.get("/portal", async (req, res) => {
     // Conference filter
     if (conference && PORTAL_CONFERENCE_MAP[conference]) {
       const teams = PORTAL_CONFERENCE_MAP[conference];
-      players = players.filter(p => teams.has(p.team));
+      players = players.filter(p => resolveCanonicalTeamName(p.team, teams) != null);
     }
 
     // Class filter
@@ -489,15 +493,19 @@ playerRouter.get("/depth-chart", async (req, res) => {
       return res.status(400).json({ error: "Invalid or missing conference" });
     }
 
-    const teamNames = [...PORTAL_CONFERENCE_MAP[conference]].sort((a, b) =>
+    const conferenceTeams = PORTAL_CONFERENCE_MAP[conference];
+    const teamNames = [...conferenceTeams].sort((a, b) =>
       a.localeCompare(b, undefined, { sensitivity: "base" })
     );
+    const canonicalSet = new Set(teamNames);
 
-    const players = await Player.find({ team: { $in: teamNames } }).lean();
+    const players = await Player.find({
+      team: { $in: expandQueryTeamNames(conferenceTeams) },
+    }).lean();
     const byTeam = new Map(teamNames.map((t) => [t, []]));
     for (const p of players) {
-      const list = byTeam.get(p.team);
-      if (list) list.push(p);
+      const key = resolveCanonicalTeamName(p.team, canonicalSet);
+      if (key) byTeam.get(key).push(p);
     }
 
     const teams = teamNames.map((name) => ({

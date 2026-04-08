@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { Player } from "../models/Player.js";
+import { resolveCanonicalTeamName } from "../data/portalConferenceMap.js";
 
 const SITE = "https://cbb.up.railway.app";
 
@@ -24,7 +25,7 @@ function canonicalPositions(rawPos) {
 // ── HM teams ──────────────────────────────────────────────────────────────────
 const HM_TEAMS = new Set([
   "California", "Clemson", "Duke", "Florida State", "Georgia Tech",
-  "Louisville", "Miami", "North Carolina", "NC State", "Notre Dame",
+  "Louisville", "Miami FL", "North Carolina", "NC State", "Notre Dame",
   "Pittsburgh", "SMU", "Stanford", "Syracuse", "Virginia", "Virginia Tech",
   "Wake Forest", "Butler", "UConn", "Creighton", "DePaul", "Georgetown",
   "Marquette", "Providence", "St. John's", "Seton Hall", "Villanova", "Xavier",
@@ -131,8 +132,8 @@ export async function handlePortal(interaction) {
       const canonical = canonicalPositions(p.position);
       if (!canonical.some(c => posFilter.includes(c))) return false;
     }
-    if (hmFilter === "hm"     && !HM_TEAMS.has(p.team)) return false;
-    if (hmFilter === "non_hm" &&  HM_TEAMS.has(p.team)) return false;
+    if (hmFilter === "hm"     && resolveCanonicalTeamName(p.team, HM_TEAMS) == null) return false;
+    if (hmFilter === "non_hm" && resolveCanonicalTeamName(p.team, HM_TEAMS) != null) return false;
     return true;
   });
 

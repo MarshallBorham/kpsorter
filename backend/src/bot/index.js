@@ -4,6 +4,7 @@ import { User } from "../models/User.js";
 import { BotWatchlist } from "../models/BotWatchlist.js";
 import { recordComparison } from "../utils/recordComparison.js";
 import { portalCommand, handlePortal } from "./portalCommand.js";
+import { resolveCanonicalTeamName } from "../data/portalConferenceMap.js";
 
 const ALLOWED_GUILDS = new Set([
   "800261752540364840",
@@ -12,7 +13,7 @@ const ALLOWED_GUILDS = new Set([
 
 const HM_TEAMS = new Set([
   "California", "Clemson", "Duke", "Florida State", "Georgia Tech",
-  "Louisville", "Miami", "North Carolina", "NC State", "Notre Dame",
+  "Louisville", "Miami FL", "North Carolina", "NC State", "Notre Dame",
   "Pittsburgh", "SMU", "Stanford", "Syracuse", "Virginia", "Virginia Tech",
   "Wake Forest", "Butler", "UConn", "Creighton", "DePaul", "Georgetown",
   "Marquette", "Providence", "St. John's", "Seton Hall", "Villanova", "Xavier",
@@ -206,9 +207,9 @@ async function runSearch(statList, limit, portalOnly, filterMin, classFilter, hm
     });
 
   if (hmFilter === "hm") {
-    ranked = ranked.filter(p => HM_TEAMS.has(p.team));
+    ranked = ranked.filter(p => resolveCanonicalTeamName(p.team, HM_TEAMS) != null);
   } else if (hmFilter === "non_hm") {
-    ranked = ranked.filter(p => !HM_TEAMS.has(p.team));
+    ranked = ranked.filter(p => resolveCanonicalTeamName(p.team, HM_TEAMS) == null);
   }
 
   if (ranked.length === 0) return null;
