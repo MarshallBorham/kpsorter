@@ -67,24 +67,6 @@ export default function LoginPage() {
         {discordBanner && <p className="error-msg">{discordBanner}</p>}
         {error && <p className="error-msg">{error}</p>}
 
-        <a
-          href="/api/auth/discord"
-          className="btn btn-primary"
-          style={{
-            display: "block",
-            textAlign: "center",
-            textDecoration: "none",
-            marginBottom: "1rem",
-            boxSizing: "border-box",
-          }}
-        >
-          Continue with Discord
-        </a>
-
-        <p style={{ textAlign: "center", fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 1rem" }}>
-          Or sign in with username and password
-        </p>
-
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="username">Username</label>
@@ -111,6 +93,20 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
+
+        <a
+          href="/api/auth/discord"
+          className="btn btn-primary"
+          style={{
+            display: "block",
+            textAlign: "center",
+            textDecoration: "none",
+            marginTop: "0.75rem",
+            boxSizing: "border-box",
+          }}
+        >
+          Sign in with Discord
+        </a>
 
         <button className="btn-logout" onClick={handleGuest} style={{ marginTop: "0.75rem", width: "100%" }}>
           Continue as Guest
