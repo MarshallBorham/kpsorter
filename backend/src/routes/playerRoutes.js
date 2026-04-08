@@ -1,13 +1,17 @@
 import express from "express";
 import { Player } from "../models/Player.js";
+import { User } from "../models/User.js";
+import { PlayerComment } from "../models/PlayerComment.js";
 import { ComparisonResult } from "../models/ComparisonResult.js";
 import { recordComparison } from "../utils/recordComparison.js";
+import { requireAuth } from "../middleware/auth.js";
 import {
   PORTAL_CONFERENCE_MAP,
   resolveCanonicalTeamName,
   expandQueryTeamNames,
 } from "../data/portalConferenceMap.js";
 import { buildTeamDepth } from "../utils/depthChart.js";
+import { logEvent } from "../logEvent.js";
 
 export const playerRouter = express.Router();
 
@@ -199,6 +203,8 @@ playerRouter.get("/", async (req, res) => {
     } else if (hmFilter === "non_hm") {
       ranked = ranked.filter((p) => resolveCanonicalTeamName(p.team, HM_TEAMS) == null);
     }
+    
+    await logEvent("search", { statList, hmFilter, top100, filterMin, filters, classes, minHeight, maxHeight, portalOnly });
 
     res.json({ statList, results: ranked });
   } catch (err) {
@@ -439,6 +445,65 @@ playerRouter.get("/depth-chart", async (req, res) => {
     res.json({ conference, conferences, teams });
   } catch (err) {
     console.error("Depth chart route error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ── GET/POST /api/players/:playerId/comments ───────────────────────────────────
+playerRouter.get("/:playerId/comments", async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const exists = await Player.exists({ id: playerId });
+    if (!exists) return res.status(404).json({ error: "Player not found" });
+
+    const comments = await PlayerComment.find({ playerId })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    res.json(
+      comments.map((c) => ({
+        id: String(c._id),
+        username: c.username,
+        body: c.body,
+        createdAt: c.createdAt,
+      }))
+    );
+  } catch (err) {
+    console.error("Player comments GET error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+playerRouter.post("/:playerId/comments", requireAuth, async (req, res) => {
+  try {
+    const { playerId } = req.params;
+    const raw = req.body?.body;
+    const body = typeof raw === "string" ? raw.trim() : "";
+    if (!body) return res.status(400).json({ error: "Comment cannot be empty" });
+    if (body.length > 2000) return res.status(400).json({ error: "Comment too long (max 2000 characters)" });
+
+    const playerExists = await Player.exists({ id: playerId });
+    if (!playerExists) return res.status(404).json({ error: "Player not found" });
+
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const doc = await PlayerComment.create({
+      playerId,
+      userId: user._id,
+      username: user.username,
+      body,
+    });
+
+    res.status(201).json({
+      id: String(doc._id),
+      username: doc.username,
+      body: doc.body,
+      createdAt: doc.createdAt,
+    });
+  } catch (err) {
+    console.error("Player comments POST error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

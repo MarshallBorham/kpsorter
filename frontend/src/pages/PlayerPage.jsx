@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router";
 import Header from "../components/Header.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const STAT_LABELS = {
   PPG: "Points Per Game", RPG: "Rebounds Per Game", APG: "Assists Per Game",
@@ -82,12 +83,32 @@ function StatCard({ statKey, val, pct }) {
   );
 }
 
+function formatCommentDate(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return "";
+  }
+}
+
 export default function PlayerPage() {
   const { playerId } = useParams();
+  const { token, isGuest, authFetch } = useAuth();
   const [player, setPlayer] = useState(null);
   const [percentiles, setPercentiles] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [comments, setComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsErr, setCommentsErr] = useState("");
+  const [draft, setDraft] = useState("");
+  const [posting, setPosting] = useState(false);
+  const canComment = !!token && !isGuest;
 
   useEffect(() => {
     async function load() {
@@ -114,6 +135,62 @@ export default function PlayerPage() {
     }
     load();
   }, [playerId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadComments() {
+      setCommentsLoading(true);
+      setCommentsErr("");
+      try {
+        const res = await fetch(`/api/players/${encodeURIComponent(playerId)}/comments`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) {
+          setCommentsErr(data.error || "Could not load comments");
+          setComments([]);
+          return;
+        }
+        setComments(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) {
+          setCommentsErr("Network error loading comments");
+          setComments([]);
+        }
+      } finally {
+        if (!cancelled) setCommentsLoading(false);
+      }
+    }
+    loadComments();
+    return () => {
+      cancelled = true;
+    };
+  }, [playerId]);
+
+  async function handlePostComment(e) {
+    e.preventDefault();
+    const text = draft.trim();
+    if (!text || posting || !canComment) return;
+    setPosting(true);
+    setCommentsErr("");
+    try {
+      const res = await authFetch(`/api/players/${encodeURIComponent(playerId)}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: text }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCommentsErr(data.error || "Could not post comment");
+        return;
+      }
+      setComments((prev) => [data, ...prev]);
+      setDraft("");
+    } catch {
+      setCommentsErr("Network error");
+    } finally {
+      setPosting(false);
+    }
+  }
 
   return (
     <>
@@ -201,6 +278,97 @@ export default function PlayerPage() {
                 </div>
               );
             })}
+
+            {/* Profile comments */}
+            <div style={{ marginTop: "2.5rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)" }}>
+              <h2 style={{
+                fontFamily: MONO, fontSize: "0.7rem", fontWeight: 700,
+                textTransform: "uppercase", letterSpacing: "0.1em",
+                color: "var(--text-muted)", marginBottom: "1rem",
+              }}>
+                // Comments
+              </h2>
+
+              {canComment ? (
+                <form onSubmit={handlePostComment} style={{ marginBottom: "1.25rem" }}>
+                  <label htmlFor="player-comment" style={{ display: "block", fontFamily: MONO, fontSize: "0.65rem", color: "var(--text-muted)", marginBottom: "0.4rem", letterSpacing: "0.06em" }}>
+                    Add a comment
+                  </label>
+                  <textarea
+                    id="player-comment"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    maxLength={2000}
+                    rows={3}
+                    placeholder="Thoughts on this player…"
+                    style={{
+                      width: "100%",
+                      resize: "vertical",
+                      minHeight: "4.5rem",
+                      padding: "0.65rem 0.75rem",
+                      fontFamily: "var(--font-sans)",
+                      fontSize: "0.9rem",
+                      lineHeight: 1.45,
+                      color: "var(--text)",
+                      background: "var(--bg)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius)",
+                      marginBottom: "0.6rem",
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={posting || !draft.trim()}
+                  >
+                    {posting ? "Posting…" : "Post comment"}
+                  </button>
+                </form>
+              ) : (
+                <p style={{ fontFamily: MONO, fontSize: "0.72rem", color: "var(--text-muted)", marginBottom: "1.25rem", lineHeight: 1.5 }}>
+                  <Link to="/login" style={{ color: "var(--primary)" }}>Sign in</Link>
+                  {" "}to leave a comment{isGuest ? " (guest mode is read-only)." : "."}
+                </p>
+              )}
+
+              {commentsErr && (
+                <p className="status-msg error" style={{ marginBottom: "0.75rem" }}>{commentsErr}</p>
+              )}
+
+              {commentsLoading && (
+                <p className="status-msg" style={{ marginBottom: "0.5rem" }}>Loading comments…</p>
+              )}
+
+              {!commentsLoading && comments.length === 0 && !commentsErr && (
+                <p style={{ fontFamily: MONO, fontSize: "0.75rem", color: "var(--text-muted)" }}>No comments yet.</p>
+              )}
+
+              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                {comments.map((c) => (
+                  <li
+                    key={c.id}
+                    style={{
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius)",
+                      padding: "0.85rem 1rem",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.45rem" }}>
+                      <span style={{ fontFamily: MONO, fontWeight: 700, fontSize: "0.78rem", letterSpacing: "0.04em" }}>
+                        {c.username}
+                      </span>
+                      <span style={{ fontFamily: MONO, fontSize: "0.65rem", color: "var(--text-dim)" }}>
+                        {formatCommentDate(c.createdAt)}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: "0.88rem", lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                      {c.body}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </>
         )}
       </main>
