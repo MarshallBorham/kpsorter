@@ -1,9 +1,7 @@
 /**
- * Spider/radar chart: 8 composite axes from percentile ranks (0–100),
+ * Spider/radar chart: 8 wedges from percentile ranks (0–100),
  * same pool as compare API (Min ≥ 15%). TO uses backend-inverted percentile (high = low turnovers).
  */
-
-import { useId } from "react";
 
 const MONO = "var(--font-mono)";
 
@@ -33,16 +31,47 @@ function polarPoint(angle, radius) {
   };
 }
 
+/** Solid RGB from percentile: red (low) → yellow → green (high). No alpha. */
+/** Angular center of wedge between spokes prev and i (for label above that wedge). */
+function wedgeBisectorAngle(angles, i, n) {
+  const prev = (i - 1 + n) % n;
+  const s = Math.sin(angles[prev]) + Math.sin(angles[i]);
+  const c = Math.cos(angles[prev]) + Math.cos(angles[i]);
+  return Math.atan2(s, c);
+}
+
+function colorFromPercentile(p) {
+  const t = (p == null ? 0 : Math.max(0, Math.min(100, p))) / 100;
+  const c0 = [255, 59, 48];
+  const c1 = [245, 166, 35];
+  const c2 = [26, 127, 55];
+  let r;
+  let g;
+  let b;
+  if (t < 0.45) {
+    const u = t / 0.45;
+    r = Math.round(c0[0] + (c1[0] - c0[0]) * u);
+    g = Math.round(c0[1] + (c1[1] - c0[1]) * u);
+    b = Math.round(c0[2] + (c1[2] - c0[2]) * u);
+  } else {
+    const u = (t - 0.45) / 0.55;
+    r = Math.round(c1[0] + (c2[0] - c1[0]) * u);
+    g = Math.round(c1[1] + (c2[1] - c1[1]) * u);
+    b = Math.round(c1[2] + (c2[2] - c1[2]) * u);
+  }
+  const h = (x) => x.toString(16).padStart(2, "0");
+  return `#${h(r)}${h(g)}${h(b)}`;
+}
+
 export default function PlayerRadarChart({ percentiles }) {
-  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const bgHeatId = `radarHeat-${uid}`;
   const n = RADAR_AXES.length;
   const values = RADAR_AXES.map((axis) => blendPercentile(percentiles || {}, axis.keys));
 
   const hasAny = values.some((v) => v != null);
   const dataMaxR = 78;
   const gridRings = [0.25, 0.5, 0.75, 1];
-  const labelR = 96;
+  /** Outside the plot; labels sit centered on each wedge (mid-angle), not on spoke alignment hacks. */
+  const labelR = 100;
 
   const angles = Array.from({ length: n }, (_, i) => -Math.PI / 2 + (2 * Math.PI * i) / n);
 
@@ -88,45 +117,21 @@ export default function PlayerRadarChart({ percentiles }) {
         aria-label="Player percentile profile across eight stat categories"
         style={{ width: "min(100%, 280px)", height: "auto", overflow: "visible" }}
       >
-        <defs>
-          <radialGradient
-            id={bgHeatId}
-            gradientUnits="userSpaceOnUse"
-            cx="0"
-            cy="0"
-            r={dataMaxR}
-          >
-            <stop offset="0%" stopColor="#ff3b30" stopOpacity="0.82" />
-            <stop offset="12%" stopColor="#f85149" stopOpacity="0.72" />
-            <stop offset="22%" stopColor="#ff6b3d" stopOpacity="0.62" />
-            <stop offset="28%" stopColor="#f5a623" stopOpacity="0.58" />
-            <stop offset="32%" stopColor="#d8e632" stopOpacity="0.52" />
-            <stop offset="38%" stopColor="#56d364" stopOpacity="0.5" />
-            <stop offset="48%" stopColor="#3fb950" stopOpacity="0.52" />
-            <stop offset="60%" stopColor="#2f9e4c" stopOpacity="0.54" />
-            <stop offset="74%" stopColor="#1e6f38" stopOpacity="0.56" />
-            <stop offset="88%" stopColor="#124a27" stopOpacity="0.58" />
-            <stop offset="100%" stopColor="#082814" stopOpacity="0.64" />
-          </radialGradient>
-        </defs>
-
-        <polygon points={outerOctagonPts} fill="var(--surface)" fillOpacity={0.14} stroke="none" />
+        <polygon points={outerOctagonPts} fill="var(--surface)" stroke="none" />
 
         <polygon
           points={outerOctagonPts}
           fill="none"
           stroke="var(--border)"
           strokeWidth="0.75"
-          strokeOpacity="0.9"
         />
 
         {gridRings.map((t) => (
           <polygon
             key={t}
             fill="none"
-            stroke="var(--bg)"
-            strokeWidth="1.1"
-            strokeOpacity="0.35"
+            stroke="var(--border-bright)"
+            strokeWidth="0.65"
             points={angles
               .map((angle) => {
                 const p = polarPoint(angle, t * dataMaxR);
@@ -145,36 +150,43 @@ export default function PlayerRadarChart({ percentiles }) {
               y1="0"
               x2={outer.x}
               y2={outer.y}
-              stroke="var(--bg)"
-              strokeWidth="1"
-              strokeOpacity="0.42"
+              stroke="var(--border-bright)"
+              strokeWidth="0.85"
             />
           );
         })}
 
+        {hasAny &&
+          Array.from({ length: n }, (__, i) => {
+            const prev = (i - 1 + n) % n;
+            const a = dataPoints[prev];
+            const b = dataPoints[i];
+            const fill = colorFromPercentile(values[i]);
+            const d = `M 0 0 L ${a.x.toFixed(2)} ${a.y.toFixed(2)} L ${b.x.toFixed(2)} ${b.y.toFixed(2)} Z`;
+            return <path key={`wedge-${RADAR_AXES[i].label}`} d={d} fill={fill} />;
+          })}
+
         {hasAny && (
           <polygon
             points={polygonPts}
-            fill={`url(#${bgHeatId})`}
+            fill="none"
             stroke="var(--primary)"
             strokeWidth="1.75"
             strokeLinejoin="round"
           />
         )}
 
-        {angles.map((angle, i) => {
-          const p = polarPoint(angle, labelR);
+        {angles.map((_, i) => {
+          const labelAngle = wedgeBisectorAngle(angles, i, n);
+          const p = polarPoint(labelAngle, labelR);
           const v = values[i];
-          const anchor =
-            Math.abs(p.x) < 4 ? "middle" : p.x > 0 ? "start" : "end";
-          const baseline = p.y > 12 ? "hanging" : p.y < -12 ? "auto" : "middle";
           return (
             <text
               key={`lbl-${RADAR_AXES[i].label}`}
               x={p.x}
               y={p.y}
-              textAnchor={anchor}
-              dominantBaseline={baseline}
+              textAnchor="middle"
+              dominantBaseline="middle"
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: "7px",
