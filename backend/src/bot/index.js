@@ -1,4 +1,13 @@
-import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
+import {
+  Client,
+  GatewayIntentBits,
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  EmbedBuilder,
+  AttachmentBuilder,
+  MessageFlags,
+} from "discord.js";
 import { Player } from "../models/Player.js";
 import { User } from "../models/User.js";
 import { getOrCreateUserForDiscord } from "../utils/discordAccount.js";
@@ -6,6 +15,7 @@ import { recordComparison } from "../utils/recordComparison.js";
 import { portalCommand, handlePortal } from "./portalCommand.js";
 import { depthChartCommand, handleDepthChart } from "./depthChartCommand.js";
 import { resolveCanonicalTeamName } from "../data/portalConferenceMap.js";
+import { renderPlayerRadarPng } from "../utils/playerRadarPng.js";
 
 const ALLOWED_GUILDS = new Set([
   "800261752540364840",
@@ -148,6 +158,21 @@ function buildPlayerEmbed(player, sharedBy = null, top100 = false) {
   ].filter(Boolean);
   if (footerParts.length > 0) embed.setFooter({ text: footerParts.join(" · ") });
   return embed;
+}
+
+async function editReplyWithPlayerEmbedAndRadar(interaction, player, sharedBy, top100) {
+  const embed = buildPlayerEmbed(player, sharedBy, top100);
+  const payload = { embeds: [embed] };
+  try {
+    const buf = await renderPlayerRadarPng(player, top100);
+    if (buf?.length) {
+      embed.setImage("attachment://radar.png");
+      payload.files = [new AttachmentBuilder(buf, { name: "radar.png" })];
+    }
+  } catch (e) {
+    console.error("renderPlayerRadarPng:", e);
+  }
+  await interaction.editReply(payload);
 }
 
 async function runSearch(statList, limit, portalOnly, filterMin, classFilter, hmFilter, top100 = false) {
@@ -670,7 +695,7 @@ export async function startBot() {
           return;
         }
 
-        await interaction.editReply({ embeds: [buildPlayerEmbed(player, null, top100)] });
+        await editReplyWithPlayerEmbedAndRadar(interaction, player, null, top100);
       }
 
       else if (commandName === "watchlist") {
@@ -850,7 +875,7 @@ export async function startBot() {
           return;
         }
 
-        await interaction.editReply({ embeds: [buildPlayerEmbed(player, interaction.user.username, top100)] });
+        await editReplyWithPlayerEmbedAndRadar(interaction, player, interaction.user.username, top100);
       }
 
       else if (commandName === "sharelist") {
