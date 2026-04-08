@@ -5,6 +5,7 @@ import {
   fetchRosterPlayersForCanonicalTeam,
   DEPTH_SLOTS,
 } from "../utils/depthChart.js";
+import { recordDiscordDepthChartUsage } from "../logEvent.js";
 
 const SITE = "https://cbb.up.railway.app";
 
@@ -38,13 +39,30 @@ export async function handleDepthChart(interaction) {
   await interaction.deferReply();
 
   const teamInput = interaction.options.getString("team");
+  const guildId = interaction.guildId ?? null;
+  const userId = interaction.user?.id ?? null;
+
   const canonical = resolveUserTeamToCanonical(teamInput);
   if (!canonical) {
+    recordDiscordDepthChartUsage({
+      teamInput,
+      ok: false,
+      guildId,
+      userId,
+    });
     await interaction.editReply({
       content: `❌ No unique team match for **${teamInput}**. Try the full name from the site depth chart (e.g. \`Miami FL\`, \`St. John's\`).`,
     });
     return;
   }
+
+  recordDiscordDepthChartUsage({
+    teamInput,
+    teamCanonical: canonical,
+    ok: true,
+    guildId,
+    userId,
+  });
 
   const roster = await fetchRosterPlayersForCanonicalTeam(canonical);
   const depth = buildTeamDepth(roster);
