@@ -33,21 +33,9 @@ function polarPoint(angle, radius) {
   };
 }
 
-/** Circular sector path: wedge centered on axisAngle, half-angle π/n, outer radius r. */
-function sectorPathD(axisAngle, n, r) {
-  if (r < 0.35) return null;
-  const half = Math.PI / n;
-  const a0 = axisAngle - half;
-  const a1 = axisAngle + half;
-  const p0 = polarPoint(a0, r);
-  const p1 = polarPoint(a1, r);
-  return `M 0 0 L ${p0.x.toFixed(3)} ${p0.y.toFixed(3)} A ${r} ${r} 0 0 1 ${p1.x.toFixed(3)} ${p1.y.toFixed(3)} Z`;
-}
-
 export default function PlayerRadarChart({ percentiles }) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const bgHeatId = `radarHeat-${uid}`;
-  const clipOctId = `radarOct-${uid}`;
   const n = RADAR_AXES.length;
   const values = RADAR_AXES.map((axis) => blendPercentile(percentiles || {}, axis.keys));
 
@@ -101,9 +89,6 @@ export default function PlayerRadarChart({ percentiles }) {
         style={{ width: "min(100%, 280px)", height: "auto", overflow: "visible" }}
       >
         <defs>
-          <clipPath id={clipOctId}>
-            <polygon points={outerOctagonPts} />
-          </clipPath>
           <radialGradient
             id={bgHeatId}
             gradientUnits="userSpaceOnUse"
@@ -123,23 +108,6 @@ export default function PlayerRadarChart({ percentiles }) {
         </defs>
 
         <polygon points={outerOctagonPts} fill="var(--surface)" fillOpacity={0.14} stroke="none" />
-
-        <g clipPath={`url(#${clipOctId})`}>
-          {angles.map((axisAngle, i) => {
-            const v = values[i];
-            const pct = v == null ? 0 : Math.max(0, Math.min(100, v));
-            const r = (pct / 100) * dataMaxR;
-            const d = sectorPathD(axisAngle, n, r);
-            if (!d) return null;
-            return (
-              <path
-                key={`sector-${RADAR_AXES[i].label}`}
-                d={d}
-                fill={`url(#${bgHeatId})`}
-              />
-            );
-          })}
-        </g>
 
         <polygon
           points={outerOctagonPts}
@@ -183,12 +151,11 @@ export default function PlayerRadarChart({ percentiles }) {
 
         {hasAny && (
           <polygon
-            fill="var(--surface)"
-            fillOpacity={0.42}
+            points={polygonPts}
+            fill={`url(#${bgHeatId})`}
             stroke="var(--primary)"
             strokeWidth="1.75"
             strokeLinejoin="round"
-            points={polygonPts}
           />
         )}
 
