@@ -1,23 +1,83 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
+
+const OAUTH_STASH_KEY = "kpsorter_discord_oauth_pending";
+const OAUTH_STASH_TTL_MS = 120_000;
+
+function readDiscordCallbackParams() {
+  const search = new URLSearchParams(window.location.search);
+  let token = search.get("token");
+  let username = search.get("username");
+  if (!token || !username) {
+    const h = window.location.hash.replace(/^#/, "");
+    const fromHash = new URLSearchParams(h);
+    token = fromHash.get("token");
+    username = fromHash.get("username");
+  }
+  return { token, username };
+}
+
+function readOAuthStash() {
+  try {
+    const raw = sessionStorage.getItem(OAUTH_STASH_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (
+      typeof p.token !== "string" ||
+      typeof p.username !== "string" ||
+      typeof p.ts !== "number" ||
+      Date.now() - p.ts > OAUTH_STASH_TTL_MS
+    ) {
+      sessionStorage.removeItem(OAUTH_STASH_KEY);
+      return null;
+    }
+    return { token: p.token, username: p.username };
+  } catch {
+    sessionStorage.removeItem(OAUTH_STASH_KEY);
+    return null;
+  }
+}
+
+function writeOAuthStash(token, username) {
+  sessionStorage.setItem(
+    OAUTH_STASH_KEY,
+    JSON.stringify({ token, username, ts: Date.now() })
+  );
+}
 
 export default function DiscordCallbackPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [msg, setMsg] = useState("Signing you in…");
+  const handled = useRef(false);
 
   useEffect(() => {
-    const h = window.location.hash.replace(/^#/, "");
-    const params = new URLSearchParams(h);
-    const token = params.get("token");
-    const username = params.get("username");
+    if (handled.current) return;
+
+    let { token, username } = readDiscordCallbackParams();
+    let usedStash = false;
     if (token && username) {
+      writeOAuthStash(token, username);
+    } else {
+      const stashed = readOAuthStash();
+      if (stashed) {
+        token = stashed.token;
+        username = stashed.username;
+        usedStash = true;
+      }
+    }
+
+    if (token && username) {
+      handled.current = true;
+      if (usedStash) sessionStorage.removeItem(OAUTH_STASH_KEY);
+      else queueMicrotask(() => sessionStorage.removeItem(OAUTH_STASH_KEY));
       login(token, username);
-      window.history.replaceState(null, "", "/auth/discord/callback");
+      window.history.replaceState(null, "", window.location.pathname);
       navigate("/", { replace: true });
       return;
     }
+
     setMsg("Could not complete sign-in. Redirecting…");
     navigate("/login?error=discord_bad_token", { replace: true });
   }, [login, navigate]);

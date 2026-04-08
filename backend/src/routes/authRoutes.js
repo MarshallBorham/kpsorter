@@ -12,12 +12,31 @@ function discordOAuthConfigured() {
   return !!(
     getEnvVar("DISCORD_CLIENT_ID", false) &&
     getEnvVar("DISCORD_CLIENT_SECRET", false) &&
-    getEnvVar("DISCORD_OAUTH_REDIRECT_URI", false)
+    discordRedirectUri()
   );
 }
 
-function frontendOrigin() {
-  return getEnvVar("FRONTEND_ORIGIN", false) || "http://localhost:5173";
+function discordRedirectUri() {
+  const u = getEnvVar("DISCORD_OAUTH_REDIRECT_URI", false);
+  return u ? String(u).trim() : null;
+}
+
+/** SPA base URL for post-OAuth redirect. Prefer FRONTEND_ORIGIN when API and UI differ (e.g. Railway split). */
+function frontendOrigin(req) {
+  const env = getEnvVar("FRONTEND_ORIGIN", false);
+  if (env) {
+    return String(env).trim().replace(/\/$/, "");
+  }
+  if (req) {
+    const proto = (req.get("x-forwarded-proto") || req.protocol || "https")
+      .split(",")[0]
+      .trim();
+    const host = (req.get("x-forwarded-host") || req.get("host") || "")
+      .split(",")[0]
+      .trim();
+    if (host) return `${proto}://${host}`;
+  }
+  return "http://localhost:5173";
 }
 
 export function signToken(user) {
@@ -115,7 +134,7 @@ authRouter.get("/discord", (req, res) => {
   );
   const params = new URLSearchParams({
     client_id: getEnvVar("DISCORD_CLIENT_ID"),
-    redirect_uri: getEnvVar("DISCORD_OAUTH_REDIRECT_URI"),
+    redirect_uri: discordRedirectUri(),
     response_type: "code",
     scope: "identify",
     state,
@@ -127,7 +146,7 @@ authRouter.get("/discord", (req, res) => {
  * Discord OAuth redirect target. Exchanges code, upserts User by discordId, issues JWT, redirects to SPA.
  */
 authRouter.get("/discord/callback", async (req, res) => {
-  const front = frontendOrigin();
+  const front = frontendOrigin(req);
   const err = (code) => res.redirect(`${front}/login?error=${encodeURIComponent(code)}`);
 
   if (!discordOAuthConfigured()) {
@@ -153,7 +172,7 @@ authRouter.get("/discord/callback", async (req, res) => {
       client_secret: getEnvVar("DISCORD_CLIENT_SECRET"),
       grant_type: "authorization_code",
       code: String(code),
-      redirect_uri: getEnvVar("DISCORD_OAUTH_REDIRECT_URI"),
+      redirect_uri: discordRedirectUri(),
     });
 
     const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
@@ -181,11 +200,11 @@ authRouter.get("/discord/callback", async (req, res) => {
     await logEvent("login_discord", { username: user.username, discordId: profile.id });
 
     const token = signToken(user);
-    const hash = new URLSearchParams({
+    const qs = new URLSearchParams({
       token,
       username: user.username,
     }).toString();
-    res.redirect(`${front}/auth/discord/callback#${hash}`);
+    res.redirect(`${front}/auth/discord/callback?${qs}`);
   } catch (e) {
     console.error("Discord callback error:", e);
     return err("discord_server");
