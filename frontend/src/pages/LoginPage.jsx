@@ -1,10 +1,27 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useState, useMemo } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../context/AuthContext.jsx";
+
+const DISCORD_ERRORS = {
+  discord_denied: "Discord sign-in was cancelled.",
+  discord_bad_response: "Discord returned an invalid response. Try again.",
+  discord_state: "Sign-in expired or was interrupted. Try again.",
+  discord_token: "Could not verify Discord session. Try again.",
+  discord_profile: "Could not load your Discord profile.",
+  discord_server: "Server error during Discord sign-in. Try again later.",
+  discord_bad_token: "Missing login token after Discord redirect.",
+};
 
 export default function LoginPage() {
   const { login, loginAsGuest } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const discordErrKey = searchParams.get("error");
+  const discordBanner = useMemo(
+    () => (discordErrKey && DISCORD_ERRORS[discordErrKey]) || (discordErrKey ? "Sign-in failed." : ""),
+    [discordErrKey]
+  );
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -47,7 +64,26 @@ export default function LoginPage() {
       <div className="auth-card">
         <h1>CBB Sorter</h1>
 
+        {discordBanner && <p className="error-msg">{discordBanner}</p>}
         {error && <p className="error-msg">{error}</p>}
+
+        <a
+          href="/api/auth/discord"
+          className="btn btn-primary"
+          style={{
+            display: "block",
+            textAlign: "center",
+            textDecoration: "none",
+            marginBottom: "1rem",
+            boxSizing: "border-box",
+          }}
+        >
+          Continue with Discord
+        </a>
+
+        <p style={{ textAlign: "center", fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 1rem" }}>
+          Or sign in with username and password
+        </p>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">

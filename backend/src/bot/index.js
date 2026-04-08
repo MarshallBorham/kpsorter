@@ -1,7 +1,7 @@
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import { Player } from "../models/Player.js";
 import { User } from "../models/User.js";
-import { BotWatchlist } from "../models/BotWatchlist.js";
+import { getOrCreateUserForDiscord } from "../utils/discordAccount.js";
 import { recordComparison } from "../utils/recordComparison.js";
 import { portalCommand, handlePortal } from "./portalCommand.js";
 import { depthChartCommand, handleDepthChart } from "./depthChartCommand.js";
@@ -676,31 +676,40 @@ export async function startBot() {
       else if (commandName === "watchlist") {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-        const entries = await BotWatchlist.find({
-          discordUserId: interaction.user.id
-        }).sort({ addedAt: -1 }).lean();
-
-        if (entries.length === 0) {
+        const user = await getOrCreateUserForDiscord(interaction.user.id, interaction.user.username);
+        if (user.watchlist.length === 0) {
           await interaction.editReply("Your watchlist is empty. Use /save to add players.");
           return;
         }
 
-        const description = entries.map((e, i) => {
-          const statStr = e.stats.map(s => {
-            const val = e.statValues?.get ? e.statValues.get(s) : e.statValues?.[s];
-            const pct = e.statPcts?.get ? e.statPcts.get(s) : e.statPcts?.[s];
-            if (val !== undefined && pct !== undefined) {
-              return `${s}: ${formatVal(s, val)} (${ordinal(pct)} %)`;
-            }
-            return s;
+        const pool = await Player.find({ "stats.Min": { $gte: 15 } }).lean();
+        const sorted = [...user.watchlist].sort(
+          (a, b) => new Date(b.addedAt) - new Date(a.addedAt)
+        );
+
+        const lines = [];
+        let rank = 0;
+        for (const e of sorted) {
+          const p = await Player.findOne({ id: e.playerId }).lean();
+          if (!p) continue;
+          rank += 1;
+          const statStr = e.stats.map((s) => {
+            const val = p.stats?.[s] ?? p.stats?.get?.(s) ?? 0;
+            const pct = calcPercentiles(s, pool)(val);
+            return `${s}: ${formatVal(s, val)} (${ordinal(pct)} %)`;
           }).join(", ");
-          return `**${i + 1}. ${e.playerName} — ${e.playerTeam}**\nStats: ${statStr}`;
-        }).join("\n\n");
+          lines.push(`**${rank}. ${p.name} — ${p.team}**\nStats: ${statStr}`);
+        }
+
+        if (lines.length === 0) {
+          await interaction.editReply("Your watchlist is empty. Use /save to add players.");
+          return;
+        }
 
         const embed = new EmbedBuilder()
           .setTitle(`📋 ${interaction.user.username}'s Watchlist`)
           .setColor(0x0052cc)
-          .setDescription(description);
+          .setDescription(lines.join("\n\n"));
 
         await interaction.editReply({ embeds: [embed] });
       }
@@ -720,12 +729,8 @@ export async function startBot() {
           return;
         }
 
-        const existing = await BotWatchlist.findOne({
-          discordUserId: interaction.user.id,
-          playerId: player.id,
-        });
-
-        if (existing) {
+        const user = await getOrCreateUserForDiscord(interaction.user.id, interaction.user.username);
+        if (user.watchlist.some((e) => e.playerId === player.id)) {
           await interaction.editReply(`${player.name} is already in your watchlist.`);
           return;
         }
@@ -734,21 +739,14 @@ export async function startBot() {
         const statValues = {};
         const statPcts = {};
         for (const s of statList) {
-          const val = player.stats[s] ?? 0;
+          const val = player.stats?.[s] ?? player.stats?.get?.(s) ?? 0;
           const getPct = calcPercentiles(s, pool);
           statValues[s] = val;
           statPcts[s] = getPct(val);
         }
 
-        await BotWatchlist.create({
-          discordUserId: interaction.user.id,
-          playerId: player.id,
-          playerName: player.name,
-          playerTeam: player.team,
-          stats: statList,
-          statValues,
-          statPcts,
-        });
+        user.watchlist.push({ playerId: player.id, stats: statList });
+        await user.save();
 
         const statStr = statList.map(s =>
           `${s}: ${formatVal(s, statValues[s])} (${ordinal(statPcts[s])} %)`
@@ -776,14 +774,13 @@ export async function startBot() {
           return;
         }
 
-        const result = await BotWatchlist.deleteOne({
-          discordUserId: interaction.user.id,
-          playerId: player.id,
-        });
-
-        if (result.deletedCount === 0) {
+        const user = await getOrCreateUserForDiscord(interaction.user.id, interaction.user.username);
+        const before = user.watchlist.length;
+        user.watchlist = user.watchlist.filter((e) => e.playerId !== player.id);
+        if (user.watchlist.length === before) {
           await interaction.editReply(`${player.name} is not in your watchlist.`);
         } else {
+          await user.save();
           await interaction.editReply(`✅ Removed **${player.name}** from your watchlist.`);
         }
       }
@@ -859,26 +856,37 @@ export async function startBot() {
       else if (commandName === "sharelist") {
         await interaction.deferReply();
 
-        const entries = await BotWatchlist.find({
-          discordUserId: interaction.user.id
-        }).sort({ addedAt: -1 }).limit(3).lean();
-
-        if (entries.length === 0) {
+        const user = await getOrCreateUserForDiscord(interaction.user.id, interaction.user.username);
+        if (user.watchlist.length === 0) {
           await interaction.editReply({ content: "Your watchlist is empty.", flags: MessageFlags.Ephemeral });
           return;
         }
 
-        const description = entries.map((e, i) => {
-          const statStr = e.stats.map(s => {
-            const val = e.statValues?.get ? e.statValues.get(s) : e.statValues?.[s];
-            const pct = e.statPcts?.get ? e.statPcts.get(s) : e.statPcts?.[s];
-            if (val !== undefined && pct !== undefined) {
-              return `${s}: ${formatVal(s, val)} (${ordinal(pct)} %)`;
-            }
-            return s;
+        const pool = await Player.find({ "stats.Min": { $gte: 15 } }).lean();
+        const sorted = [...user.watchlist]
+          .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt))
+          .slice(0, 3);
+
+        const lines = [];
+        let rank = 0;
+        for (const e of sorted) {
+          const p = await Player.findOne({ id: e.playerId }).lean();
+          if (!p) continue;
+          rank += 1;
+          const statStr = e.stats.map((s) => {
+            const val = p.stats?.[s] ?? p.stats?.get?.(s) ?? 0;
+            const pct = calcPercentiles(s, pool)(val);
+            return `${s}: ${formatVal(s, val)} (${ordinal(pct)} %)`;
           }).join(", ");
-          return `**${i + 1}. ${e.playerName} — ${e.playerTeam}**\nStats: ${statStr}`;
-        }).join("\n\n");
+          lines.push(`**${rank}. ${p.name} — ${p.team}**\nStats: ${statStr}`);
+        }
+
+        if (lines.length === 0) {
+          await interaction.editReply({ content: "Your watchlist is empty.", flags: MessageFlags.Ephemeral });
+          return;
+        }
+
+        const description = lines.join("\n\n");
 
         const embed = new EmbedBuilder()
           .setTitle(`📋 ${interaction.user.username}'s Watchlist`)

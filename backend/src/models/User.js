@@ -9,9 +9,18 @@ const userSchema = new mongoose.Schema({
     trim: true,
     minlength: 3,
   },
+  /** null for Discord-only accounts */
   passwordHash: {
     type: String,
-    required: true,
+    default: null,
+  },
+  /** Stable link to Discord; web OAuth + bot share this user row. */
+  discordId: {
+    type: String,
+    default: null,
+    sparse: true,
+    unique: true,
+    index: true,
   },
   watchlist: [
     {
@@ -22,12 +31,20 @@ const userSchema = new mongoose.Schema({
   ],
 });
 
+userSchema.pre("validate", function (next) {
+  if (!this.discordId && !this.passwordHash) {
+    this.invalidate("passwordHash", "Password required for non-Discord accounts");
+  }
+  next();
+});
+
 userSchema.statics.hashPassword = async function (plaintext) {
   const salt = await bcrypt.genSalt(12);
   return bcrypt.hash(plaintext, salt);
 };
 
 userSchema.methods.verifyPassword = async function (plaintext) {
+  if (!this.passwordHash) return false;
   return bcrypt.compare(plaintext, this.passwordHash);
 };
 

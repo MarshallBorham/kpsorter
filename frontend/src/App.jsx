@@ -11,6 +11,7 @@ import PlayerPage from "./pages/PlayerPage.jsx";
 import LeaderboardPage from "./pages/LeaderboardPage.jsx";
 import PortalPage from "./pages/PortalPage.jsx";
 import DepthChartPage from "./pages/DepthChartPage.jsx";
+import DiscordCallbackPage from "./pages/DiscordCallbackPage.jsx";
 
 function usePageTracking() {
   const location = useLocation();
@@ -44,6 +45,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/auth/discord/callback" element={<DiscordCallbackPage />} />
       {/* Public — listed before "/" and catch-all so they never get treated as unknown */}
       <Route path="/results" element={<ResultsPage />} />
       <Route path="/compare" element={<ComparePage />} />

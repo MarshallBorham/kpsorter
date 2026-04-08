@@ -61,6 +61,23 @@ export default function RegisterPage() {
 
         {error && <p className="error-msg">{error}</p>}
 
+        <a
+          href="/api/auth/discord"
+          className="btn btn-primary"
+          style={{
+            display: "block",
+            textAlign: "center",
+            textDecoration: "none",
+            marginBottom: "1rem",
+            boxSizing: "border-box",
+          }}
+        >
+          Continue with Discord
+        </a>
+        <p style={{ textAlign: "center", fontSize: "0.75rem", color: "var(--text-muted)", margin: "0 0 1rem" }}>
+          Or create a username and password
+        </p>
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="username">Username</label>
