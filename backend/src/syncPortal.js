@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { Player } from "./models/Player.js";
 import { getEnvVar } from "./getEnvVar.js";
+import { TEAM_DB_ALIASES } from "./data/portalConferenceMap.js";
 import "dotenv/config";
 
 const MONGO_URI = getEnvVar("MONGODB_URI");
@@ -11,12 +12,13 @@ const res = await fetch("https://verbalcommits.com/api/vc/players/find/transfers
   method: "POST",
   headers: {
     "Content-Type": "application/json",
-    "Accept": "application/json, text/plain, */*",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-    "Referer": "https://verbalcommits.com/transfers",
-    "Origin": "https://verbalcommits.com",
-    "pb": "tcdIJEr3eL4ZAzyH",
-    "dnt": "1",
+    Accept: "application/json, text/plain, */*",
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+    Referer: "https://verbalcommits.com/transfers",
+    Origin: "https://verbalcommits.com",
+    pb: "tcdIJEr3eL4ZAzyH",
+    dnt: "1",
     "sec-fetch-dest": "empty",
     "sec-fetch-mode": "cors",
     "sec-fetch-site": "same-origin",
@@ -77,9 +79,10 @@ function editDistance(a, b) {
   );
   for (let i = 1; i <= a.length; i++) {
     for (let j = 1; j <= b.length; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      dp[i][j] =
+        a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
     }
   }
   return dp[a.length][b.length];
@@ -90,7 +93,8 @@ function normalizeName(name) {
 }
 
 function normalizeSchool(name) {
-  return name.toLowerCase()
+  return name
+    .toLowerCase()
     .replace(/[^a-z\s]/g, "")
     .replace(/\bst\b/g, "state")
     .replace(/\bno\b/g, "north")
@@ -100,23 +104,146 @@ function normalizeSchool(name) {
 }
 
 function schoolMatches(a, b) {
-  // Direct edit distance
   if (editDistance(a, b) <= 3) return true;
-  // Abbreviation check — e.g. "uncg" inside "unc greensboro"
   if (a.length <= 6 && b.replace(/\s/g, "").includes(a.replace(/\s/g, ""))) return true;
   if (b.length <= 6 && a.replace(/\s/g, "").includes(b.replace(/\s/g, ""))) return true;
-  // Normalized comparison
   return editDistance(normalizeSchool(a), normalizeSchool(b)) <= 3;
 }
 
+/** Verbal Commits destination → exact `Player.team` string used elsewhere (Torvik-style). */
+function resolveDbTeamName(vcSchoolName, distinctTeams) {
+  if (!vcSchoolName || !String(vcSchoolName).trim()) return null;
+  const raw = String(vcSchoolName).trim();
+  const lower = raw.toLowerCase();
+  for (const t of distinctTeams) {
+    if (!t) continue;
+    if (t.toLowerCase() === lower) return t;
+  }
+  let best = null;
+  let bestD = Infinity;
+  for (const t of distinctTeams) {
+    if (!t) continue;
+    if (!schoolMatches(raw, t)) continue;
+    const d = editDistance(normalizeSchool(raw), normalizeSchool(t));
+    if (d < bestD) {
+      bestD = d;
+      best = t;
+    }
+  }
+  if (best) return best;
+
+  for (const [alt, canon] of Object.entries(TEAM_DB_ALIASES)) {
+    if (!schoolMatches(raw, alt) && !schoolMatches(raw, canon)) continue;
+    const direct =
+      distinctTeams.find((t) => t === alt || t === canon) ||
+      distinctTeams.find((t) => schoolMatches(t, alt) || schoolMatches(t, canon));
+    if (direct) return direct;
+  }
+  return null;
+}
+
+/**
+ * True when VC row represents a commitment (no longer listing as active portal only).
+ * Field names vary; keep checks conservative to avoid mapping rumors to teams.
+ */
+function isCommittedTransfer(p) {
+  const to = String(p.toSchoolName ?? "").trim();
+  if (!to) return false;
+
+  const status = String(p.transferStatusName ?? p.transferStatus ?? "").trim().toLowerCase();
+  const decision = String(p.transferDecisionType ?? "").trim().toLowerCase();
+
+  if (status.includes("portal") && !/commit|sign|nli|enroll/i.test(status)) {
+    return false;
+  }
+  if (/verbally committed|committed|\bsigned\b|enrolled|\bnli\b|signed nli/i.test(status)) return true;
+  if (/verbally|committed|signed|enrolled|nli/i.test(decision)) return true;
+  return false;
+}
+
+function fuzzyMatchPortalPlayer(p, fromSchool, allDbPlayers) {
+  let bestMatch = null;
+  let bestDistance = Infinity;
+
+  const portalFirst = normalizeName(p.playerFirstName || "");
+  const portalLast = normalizeName(p.playerLastName || "");
+  const portalSchool = normalizeName(fromSchool || "");
+
+  for (const dbPlayer of allDbPlayers) {
+    const parts = dbPlayer.name.split(" ");
+    const dbFirst = normalizeName(parts[0] || "");
+    const dbLast = normalizeName(parts.slice(1).join(" ") || "");
+    const dbSchool = normalizeName(dbPlayer.team || "");
+
+    if (!portalFirst || !dbFirst || portalFirst[0] !== dbFirst[0]) continue;
+    if (!schoolMatches(portalSchool, dbSchool)) continue;
+
+    const lastDist = editDistance(portalLast, dbLast);
+    if (lastDist < bestDistance && lastDist <= 2) {
+      bestDistance = lastDist;
+      bestMatch = dbPlayer;
+    }
+  }
+
+  return bestMatch ? { player: bestMatch, distance: bestDistance } : null;
+}
+
+/**
+ * Find DB row for a VC transfer row using name, prior school, and (if committed) destination.
+ */
+function findPlayerForPortalRow(p, allDbPlayers, distinctTeams) {
+  const fullName = `${p.playerFirstName} ${p.playerLastName}`.trim();
+  const fromSchool = p.fromSchoolName;
+  if (!fullName) return null;
+
+  const exactFrom = allDbPlayers.filter(
+    (d) =>
+      d.name === fullName &&
+      (d.team === fromSchool ||
+        (d.team?.trim().toLowerCase() === fromSchool?.trim().toLowerCase() && fromSchool))
+  );
+  if (exactFrom.length === 1) return { player: exactFrom[0], fuzzy: false };
+
+  if (isCommittedTransfer(p)) {
+    const toResolved = resolveDbTeamName(p.toSchoolName, distinctTeams);
+    if (toResolved) {
+      const byDest = allDbPlayers.filter((d) => d.name === fullName && d.team === toResolved);
+      if (byDest.length === 1) return { player: byDest[0], fuzzy: false };
+    }
+  }
+
+  const sameName = allDbPlayers.filter((d) => d.name === fullName);
+  if (sameName.length === 1) return { player: sameName[0], fuzzy: false };
+  if (sameName.length > 1) {
+    const fromNorm = normalizeName(fromSchool || "");
+    const byFrom = sameName.find((d) => schoolMatches(fromNorm, normalizeName(d.team || "")));
+    if (byFrom) return { player: byFrom, fuzzy: false };
+    if (isCommittedTransfer(p)) {
+      const toRes = resolveDbTeamName(p.toSchoolName, distinctTeams);
+      if (toRes) {
+        const byTo = sameName.find((d) => d.team === toRes);
+        if (byTo) return { player: byTo, fuzzy: false };
+      }
+    }
+  }
+
+  const fuzzy = fuzzyMatchPortalPlayer(p, fromSchool, allDbPlayers);
+  if (fuzzy) return { player: fuzzy.player, fuzzy: true, fuzzyDistance: fuzzy.distance };
+
+  return null;
+}
+
 const allDbPlayers = await Player.find({}, "name team _id").lean();
-console.log(`Loaded ${allDbPlayers.length} players from database`);
+const distinctTeams = [...new Set(allDbPlayers.map((d) => d.team).filter(Boolean))];
+console.log(`Loaded ${allDbPlayers.length} players from database (${distinctTeams.length} distinct teams)`);
 
 await Player.updateMany({}, { inPortal: false });
 console.log("Reset all inPortal flags");
 
-let matched = 0;
+let matchedPortal = 0;
 let fuzzyMatched = 0;
+let committedTeamUpdates = 0;
+let committedNoTeamMap = 0;
 let unmatched = 0;
 const unmatchedNames = [];
 
@@ -124,53 +251,36 @@ for (const p of allPlayers) {
   const fullName = `${p.playerFirstName} ${p.playerLastName}`.trim();
   const school = p.fromSchoolName;
 
-  // 1. Exact match — name + school
-  let player = await Player.findOne({ name: fullName, team: school });
+  const found = findPlayerForPortalRow(p, allDbPlayers, distinctTeams);
+  let player = found?.player ?? null;
+  const usedFuzzy = !!found?.fuzzy;
 
-  // 2. Exact match — name only
-  if (!player) {
-    player = await Player.findOne({ name: fullName });
-  }
-
-  // 3. Fuzzy match — same first initial, fuzzy last name, similar school
-  if (!player) {
-    let bestMatch = null;
-    let bestDistance = Infinity;
-
-    const portalFirst = normalizeName(p.playerFirstName || "");
-    const portalLast = normalizeName(p.playerLastName || "");
-    const portalSchool = normalizeName(school || "");
-
-    for (const dbPlayer of allDbPlayers) {
-      const parts = dbPlayer.name.split(" ");
-      const dbFirst = normalizeName(parts[0] || "");
-      const dbLast = normalizeName(parts.slice(1).join(" ") || "");
-      const dbSchool = normalizeName(dbPlayer.team || "");
-
-      // First name must start with same letter
-      if (!portalFirst || !dbFirst || portalFirst[0] !== dbFirst[0]) continue;
-
-      // School must match
-      if (!schoolMatches(portalSchool, dbSchool)) continue;
-
-      // Fuzzy match on last name
-      const lastDist = editDistance(portalLast, dbLast);
-      if (lastDist < bestDistance && lastDist <= 2) {
-        bestDistance = lastDist;
-        bestMatch = dbPlayer;
-      }
-    }
-
-    if (bestMatch) {
-      player = bestMatch;
-      fuzzyMatched++;
-      console.log(`Fuzzy match: "${fullName}" (${school}) → "${bestMatch.name}" (${bestMatch.team}) (dist: ${bestDistance})`);
-    }
+  if (player && usedFuzzy) {
+    fuzzyMatched++;
+    console.log(
+      `Fuzzy match: "${fullName}" (${school}) → "${player.name}" (${player.team}) (dist: ${found.fuzzyDistance})`
+    );
   }
 
   if (player) {
-    await Player.updateOne({ _id: player._id }, { inPortal: true });
-    matched++;
+    if (isCommittedTransfer(p)) {
+      const newTeam = resolveDbTeamName(p.toSchoolName, distinctTeams);
+      if (newTeam) {
+        await Player.updateOne({ _id: player._id }, { $set: { team: newTeam, inPortal: false } });
+        player.team = newTeam;
+        committedTeamUpdates++;
+        console.log(`Committed to Torvik team: "${fullName}" → ${newTeam} (VC: "${p.toSchoolName}")`);
+      } else {
+        await Player.updateOne({ _id: player._id }, { $set: { inPortal: false } });
+        committedNoTeamMap++;
+        console.warn(
+          `Committed but no Torvik team match for "${fullName}" — VC destination: "${p.toSchoolName}" (status: ${p.transferStatusName ?? p.transferStatus ?? "?"})`
+        );
+      }
+    } else {
+      await Player.updateOne({ _id: player._id }, { $set: { inPortal: true } });
+      matchedPortal++;
+    }
   } else {
     unmatched++;
     unmatchedNames.push(`${fullName} (${school})`);
@@ -178,10 +288,12 @@ for (const p of allPlayers) {
 }
 
 console.log(`\nResults:`);
-console.log(`  Exact matched: ${matched - fuzzyMatched}`);
-console.log(`  Fuzzy matched: ${fuzzyMatched}`);
+console.log(`  Still in portal (inPortal=true): ${matchedPortal}`);
+console.log(`  Fuzzy matched (any): ${fuzzyMatched}`);
+console.log(`  Committed → team updated in DB: ${committedTeamUpdates}`);
+console.log(`  Committed → could not map destination school: ${committedNoTeamMap}`);
 console.log(`  Unmatched: ${unmatched}`);
-console.log(`  Total matched: ${matched}`);
+console.log(`  Processed rows with DB player: ${matchedPortal + committedTeamUpdates + committedNoTeamMap}`);
 
 if (unmatchedNames.length > 0) {
   console.log(`\nUnmatched players:`);
