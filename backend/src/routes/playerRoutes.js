@@ -10,7 +10,7 @@ import {
   resolveCanonicalTeamName,
   expandQueryTeamNames,
 } from "../data/portalConferenceMap.js";
-import { buildTeamDepth } from "../utils/depthChart.js";
+import { buildTeamDepth, filterDepthChartRoster } from "../utils/depthChart.js";
 import {
   buildDepthTeamProfileGetters,
   computeTeamDepthProfile,
@@ -447,7 +447,7 @@ playerRouter.get("/depth-chart", async (req, res) => {
     }
 
     const teams = teamNames.map((name) => {
-      const roster = byTeam.get(name);
+      const roster = filterDepthChartRoster(byTeam.get(name));
       return {
         name,
         depth: buildTeamDepth(roster),

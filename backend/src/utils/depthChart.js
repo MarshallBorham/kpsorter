@@ -7,6 +7,31 @@ import {
 
 export const DEPTH_SLOTS = ["PG", "SG", "SF", "PF", "C"];
 
+/** Class years omitted from depth charts (web + Discord). */
+export function isSeniorYearExcluded(year) {
+  if (year == null || year === "") return false;
+  return /^sr$/i.test(String(year).trim());
+}
+
+export function filterDepthChartRoster(players) {
+  if (!players?.length) return [];
+  return players.filter((p) => !isSeniorYearExcluded(p.year));
+}
+
+/**
+ * Class label shown only on depth-chart payloads (web + Discord): bump one year for display.
+ * Does not alter stored player.year elsewhere.
+ */
+export function depthChartDisplayYear(year) {
+  if (year == null || year === "") return year;
+  const raw = String(year).trim();
+  const key = raw.toLowerCase();
+  if (key === "fr") return "So";
+  if (key === "so") return "Jr";
+  if (key === "jr") return "Sr";
+  return raw;
+}
+
 const DEPTH_HEIGHT_6_4 = 6 * 12 + 4;
 const DEPTH_HEIGHT_6_8 = 6 * 12 + 8;
 
@@ -72,8 +97,9 @@ function depthChartSlotForPlayer(p) {
 }
 
 export function buildTeamDepth(players) {
+  const list = filterDepthChartRoster(players ?? []);
   const buckets = { PG: [], SG: [], SF: [], PF: [], C: [] };
-  for (const p of players) {
+  for (const p of list) {
     const slot = depthChartSlotForPlayer(p);
     if (slot && buckets[slot]) buckets[slot].push(p);
   }
@@ -91,7 +117,7 @@ export function buildTeamDepth(players) {
       id: pl.id,
       name: pl.name,
       inPortal: !!pl.inPortal,
-      year: pl.year,
+      year: depthChartDisplayYear(pl.year),
       height: playerHeightDisplay(pl),
       position: pl.position,
     }));
