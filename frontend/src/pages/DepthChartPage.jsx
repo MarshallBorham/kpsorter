@@ -7,6 +7,8 @@ const SLOTS = ["PG", "SG", "SF", "PF", "C"];
 
 const CHART_TRACK_H = 96;
 const BAR_COL_W = 28;
+/** Per-column width so wrapped labels stay inside the column and do not bleed into neighbors */
+const BAR_SLOT_W = 118;
 
 function TeamProfileBars({ teamProfile }) {
   const bars = teamProfile?.bars ?? [];
@@ -15,92 +17,109 @@ function TeamProfileBars({ teamProfile }) {
     <div style={{ marginTop: "1.1rem", paddingTop: "0.85rem", borderTop: "1px solid var(--border)" }}>
       <div
         style={{
-          display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "center",
-          flexWrap: "wrap",
-          gap: "0.5rem 0.45rem",
-          height: CHART_TRACK_H + 44,
-          paddingTop: "0.25rem",
+          overflowX: "auto",
+          overflowY: "hidden",
+          WebkitOverflowScrolling: "touch",
+          paddingBottom: "0.35rem",
+          marginBottom: "-0.15rem",
         }}
       >
-        {bars.map((b) => (
-          <div
-            key={b.key}
-            style={{
-              width: BAR_COL_W,
-              flex: "0 0 auto",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              height: "100%",
-            }}
-          >
-            <span
-              style={{
-                fontFamily: MONO,
-                fontSize: "0.78rem",
-                fontWeight: 700,
-                color: "var(--text-muted)",
-                marginBottom: "0.25rem",
-                minHeight: "1.1em",
-              }}
-            >
-              {b.value != null ? b.value : "—"}
-            </span>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            flexWrap: "nowrap",
+            gap: "0 1.1rem",
+            minWidth: "min-content",
+            minHeight: CHART_TRACK_H + 52,
+            paddingTop: "0.25rem",
+            paddingLeft: "0.25rem",
+            paddingRight: "0.25rem",
+          }}
+        >
+          {bars.map((b) => (
             <div
+              key={b.key}
               style={{
-                flex: 1,
-                width: BAR_COL_W,
+                width: BAR_SLOT_W,
+                flex: "0 0 auto",
+                boxSizing: "border-box",
                 display: "flex",
                 flexDirection: "column",
-                justifyContent: "flex-end",
-                minHeight: CHART_TRACK_H,
+                alignItems: "center",
               }}
             >
+              <span
+                style={{
+                  fontFamily: MONO,
+                  fontSize: "0.78rem",
+                  fontWeight: 700,
+                  color: "var(--text-muted)",
+                  marginBottom: "0.25rem",
+                  minHeight: "1.1em",
+                }}
+              >
+                {b.value != null ? b.value : "—"}
+              </span>
               <div
                 style={{
-                  height: CHART_TRACK_H,
                   width: BAR_COL_W,
-                  borderRadius: "var(--radius-sm, 4px)",
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "flex-end",
-                  overflow: "hidden",
+                  minHeight: CHART_TRACK_H,
                 }}
               >
-                {b.value != null ? (
-                  <div
-                    style={{
-                      height: `${b.value}%`,
-                      minHeight: b.value > 0 ? 2 : 0,
-                      width: "100%",
-                      background: "var(--success)",
-                      borderRadius: "var(--radius-sm, 4px) var(--radius-sm, 4px) 0 0",
-                    }}
-                  />
-                ) : null}
+                <div
+                  style={{
+                    height: CHART_TRACK_H,
+                    width: BAR_COL_W,
+                    borderRadius: "var(--radius-sm, 4px)",
+                    background: "var(--surface-2)",
+                    border: "1px solid var(--border)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-end",
+                    overflow: "hidden",
+                  }}
+                >
+                  {b.value != null ? (
+                    <div
+                      style={{
+                        height: `${b.value}%`,
+                        minHeight: b.value > 0 ? 2 : 0,
+                        width: "100%",
+                        background: "var(--success)",
+                        borderRadius: "var(--radius-sm, 4px) var(--radius-sm, 4px) 0 0",
+                      }}
+                    />
+                  ) : null}
+                </div>
               </div>
+              <span
+                style={{
+                  fontFamily: MONO,
+                  fontSize: "0.65rem",
+                  fontWeight: 600,
+                  letterSpacing: "0.02em",
+                  textAlign: "center",
+                  color: "var(--text-muted)",
+                  marginTop: "0.45rem",
+                  lineHeight: 1.3,
+                  width: "100%",
+                  boxSizing: "border-box",
+                  paddingLeft: 2,
+                  paddingRight: 2,
+                  wordBreak: "break-word",
+                  hyphens: "auto",
+                }}
+              >
+                {b.label}
+              </span>
             </div>
-            <span
-              style={{
-                fontFamily: MONO,
-                fontSize: "0.65rem",
-                fontWeight: 600,
-                letterSpacing: "0.02em",
-                textAlign: "center",
-                color: "var(--text-muted)",
-                marginTop: "0.4rem",
-                lineHeight: 1.25,
-                maxWidth: 72,
-              }}
-            >
-              {b.label}
-            </span>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
       <p
         style={{
