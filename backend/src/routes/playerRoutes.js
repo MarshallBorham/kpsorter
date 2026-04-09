@@ -11,8 +11,11 @@ import {
   expandQueryTeamNames,
 } from "../data/portalConferenceMap.js";
 import { buildTeamDepth } from "../utils/depthChart.js";
+import {
+  buildDepthTeamProfileGetters,
+  computeTeamDepthProfile,
+} from "../utils/teamDepthProfile.js";
 import { logEvent } from "../logEvent.js";
-import { RADAR_AREAS, ALL_RADAR_KEYS } from "../../../shared/radarAreas.js";
 
 export const playerRouter = express.Router();
 
@@ -61,12 +64,6 @@ const PORTAL_POS_MAP = {
 function canonicalPortalPositions(rawPos) {
   if (!rawPos) return [];
   return PORTAL_POS_MAP[rawPos] ?? [String(rawPos).toUpperCase()];
-}
-
-function blendPercentile(statPcts, keys) {
-  const vals = keys.map((k) => statPcts[k]).filter((v) => typeof v === "number" && !Number.isNaN(v));
-  if (vals.length === 0) return null;
-  return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
 }
 
 function calcPercentiles(stat, pool, statsField) {
@@ -431,47 +428,12 @@ playerRouter.get("/depth-chart", async (req, res) => {
     );
     const canonicalSet = new Set(teamNames);
 
-    // Load conference players and the full Min≥15% pool in parallel
     const [players, pool] = await Promise.all([
       Player.find({ team: { $in: expandQueryTeamNames(conferenceTeams) } }).lean(),
       Player.find({ "stats.Min": { $gte: 15 } }).lean(),
     ]);
 
-    // Build per-stat percentile functions from the national pool (computed once)
-    const percentileFns = {};
-    for (const key of ALL_RADAR_KEYS) {
-      percentileFns[key] = calcPercentiles(key, pool, "stats");
-    }
-
-    // Helper: compute blended area percentiles for a single player
-    function playerAreaPcts(p) {
-      const statPcts = {};
-      for (const key of ALL_RADAR_KEYS) {
-        const val = p.stats?.[key];
-        if (val != null && typeof val === "number") {
-          statPcts[key] = percentileFns[key](val);
-        }
-      }
-      return statPcts;
-    }
-
-    // Helper: aggregate team profile from eligible roster players
-    function buildTeamProfile(teamPlayers) {
-      const eligible = teamPlayers.filter((p) => (p.stats?.Min ?? 0) >= 15);
-      if (eligible.length === 0) return { areas: [] };
-
-      const areas = RADAR_AREAS.map((area) => {
-        const vals = eligible
-          .map((p) => blendPercentile(playerAreaPcts(p), area.keys))
-          .filter((v) => v != null);
-        const value = vals.length > 0
-          ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)
-          : null;
-        return { id: area.id, label: area.label, value };
-      });
-
-      return { areas };
-    }
+    const profileGetters = buildDepthTeamProfileGetters(pool);
 
     const byTeam = new Map(teamNames.map((t) => [t, []]));
     for (const p of players) {
@@ -484,7 +446,7 @@ playerRouter.get("/depth-chart", async (req, res) => {
       return {
         name,
         depth: buildTeamDepth(roster),
-        teamProfile: buildTeamProfile(roster),
+        teamProfile: computeTeamDepthProfile(roster, profileGetters),
       };
     });
 

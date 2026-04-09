@@ -5,81 +5,114 @@ import Header from "../components/Header.jsx";
 const MONO = "var(--font-mono)";
 const SLOTS = ["PG", "SG", "SF", "PF", "C"];
 
-function TeamPercentileChart({ teamProfile }) {
-  if (!teamProfile?.areas?.length) return null;
-  const areas = teamProfile.areas.filter((a) => a.value != null);
-  if (areas.length === 0) return null;
+const CHART_TRACK_H = 104;
 
-  const ariaLabel = `Team percentile profile: ${areas.map((a) => `${a.label} ${a.value}`).join(", ")}`;
-
+function TeamProfileBars({ teamProfile }) {
+  const bars = teamProfile?.bars ?? [];
+  if (bars.length === 0) return null;
   return (
-    <div
-      role="img"
-      aria-label={ariaLabel}
-      style={{ marginTop: "1.1rem", borderTop: "1px solid var(--border)", paddingTop: "0.9rem" }}
-    >
-      <div style={{
-        fontFamily: MONO,
-        fontSize: "0.6rem",
-        fontWeight: 700,
-        letterSpacing: "0.1em",
-        textTransform: "uppercase",
-        color: "var(--text-muted)",
-        marginBottom: "0.6rem",
-      }}>
-        Team percentile profile
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.38rem", maxWidth: 420 }}>
-        {teamProfile.areas.map((area) => (
-          <div key={area.id} style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
-            <span style={{
-              fontFamily: MONO,
-              fontSize: "0.63rem",
-              color: "var(--text-muted)",
-              width: 88,
-              flexShrink: 0,
-              textAlign: "right",
-              whiteSpace: "nowrap",
-            }}>
-              {area.label}
+    <div style={{ marginBottom: "1rem" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          gap: "0.35rem",
+          height: CHART_TRACK_H + 36,
+          paddingTop: "0.35rem",
+        }}
+      >
+        {bars.map((b) => (
+          <div
+            key={b.key}
+            style={{
+              flex: "1 1 0",
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              height: "100%",
+            }}
+          >
+            <span
+              style={{
+                fontFamily: MONO,
+                fontSize: "0.62rem",
+                fontWeight: 700,
+                color: "var(--text-muted)",
+                marginBottom: "0.2rem",
+                minHeight: "1em",
+              }}
+            >
+              {b.value != null ? b.value : "—"}
             </span>
-            <div style={{
-              flex: 1,
-              background: "var(--border)",
-              borderRadius: 3,
-              height: 7,
-              overflow: "hidden",
-              minWidth: 60,
-            }}>
-              <div style={{
-                width: `${area.value ?? 0}%`,
-                height: "100%",
-                background: "var(--primary)",
-                borderRadius: 3,
-                opacity: area.value != null ? 1 : 0,
-              }} />
+            <div
+              style={{
+                flex: 1,
+                width: "100%",
+                maxWidth: 56,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "flex-end",
+                minHeight: CHART_TRACK_H,
+              }}
+            >
+              <div
+                style={{
+                  height: CHART_TRACK_H,
+                  width: "100%",
+                  borderRadius: "var(--radius)",
+                  background: "var(--surface-2)",
+                  border: "1px solid var(--border)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "flex-end",
+                  overflow: "hidden",
+                }}
+              >
+                {b.value != null ? (
+                  <div
+                    style={{
+                      height: `${b.value}%`,
+                      minHeight: b.value > 0 ? 2 : 0,
+                      width: "100%",
+                      background: "var(--success)",
+                      borderRadius: "var(--radius) var(--radius) 0 0",
+                    }}
+                  />
+                ) : null}
+              </div>
             </div>
-            <span style={{
-              fontFamily: MONO,
-              fontSize: "0.63rem",
-              color: "var(--text-muted)",
-              width: 26,
-              textAlign: "right",
-              flexShrink: 0,
-            }}>
-              {area.value != null ? area.value : "—"}
+            <span
+              style={{
+                fontFamily: MONO,
+                fontSize: "0.52rem",
+                fontWeight: 600,
+                letterSpacing: "0.02em",
+                textAlign: "center",
+                color: "var(--text-muted)",
+                marginTop: "0.35rem",
+                lineHeight: 1.2,
+                maxWidth: "100%",
+              }}
+            >
+              {b.label}
             </span>
           </div>
         ))}
       </div>
-      <p style={{
-        fontFamily: MONO,
-        fontSize: "0.58rem",
-        color: "var(--text-dim)",
-        margin: "0.45rem 0 0",
-        lineHeight: 1.4,
-      }}>
-        Mean of roster percentiles vs Min ≥ 15% pool
+      <p
+        style={{
+          fontFamily: MONO,
+          fontSize: "0.58rem",
+          color: "var(--text-dim)",
+          margin: "0.5rem 0 0",
+          letterSpacing: "0.03em",
+          lineHeight: 1.35,
+        }}
+      >
+        Bars: Min-weighted mean percentile vs. national pool (Min ≥ 15%). Stl/Blk and playmaking average
+        sub-stat percentiles when both exist (same idea as player radar).
       </p>
     </div>
   );
@@ -197,6 +230,7 @@ export default function DepthChartPage() {
                 }}>
                   {team.name}
                 </h2>
+                <TeamProfileBars teamProfile={team.teamProfile} />
                 <div style={{ overflowX: "auto" }}>
                   <div style={{
                     display: "grid",
@@ -263,7 +297,6 @@ export default function DepthChartPage() {
                     ))}
                   </div>
                 </div>
-                <TeamPercentileChart teamProfile={team.teamProfile} />
               </section>
             ))}
           </div>

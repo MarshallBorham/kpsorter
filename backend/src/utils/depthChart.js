@@ -15,7 +15,7 @@ const ALL_CANONICAL_TEAMS = new Set(
 );
 
 /** Read stat from player.stats (plain object or Mongoose Map). */
-function statGet(p, key) {
+export function statGet(p, key) {
   const s = p.stats;
   if (s == null) return undefined;
   if (typeof s.get === "function") return s.get(key);
