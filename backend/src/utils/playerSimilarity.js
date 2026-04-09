@@ -74,6 +74,18 @@ export function euclideanZDistance(zA, zB, stats) {
 }
 
 /**
+ * Map z-space Euclidean distance to a 0–100 similarity score (higher = more similar).
+ * Uses a dimension-aware reference distance so identical profiles score 100%.
+ */
+export function distanceToSimilarityPercent(distance, dimensionCount) {
+  const k = Math.max(1, dimensionCount);
+  const dRef = 2.5 * Math.sqrt(k);
+  if (!Number.isFinite(distance) || distance <= 0) return 100;
+  const raw = 100 * (1 - distance / dRef);
+  return Math.max(0, Math.min(100, Math.round(raw)));
+}
+
+/**
  * @param {object} target - player doc
  * @param {object[]} pool - players to search (e.g. Min ≥ 15); should not require target to be in pool
  * @param {{ stats?: string[], statsField?: string, limit?: number }} [options]
@@ -82,14 +94,16 @@ export function findSimilarByZDistance(target, pool, options = {}) {
   const {
     stats = SIMILARITY_STATS,
     statsField = "stats",
-    limit = 12,
+    limit = 3,
   } = options;
+
+  const targetId = target?.id != null ? String(target.id) : "";
 
   const params = computeZScoreParams(pool, stats, statsField);
   const zTarget = zVectorForPlayer(target, params, stats, statsField);
   const rows = [];
   for (const p of pool) {
-    if (p.id === target.id) continue;
+    if (String(p.id) === targetId) continue;
     const z = zVectorForPlayer(p, params, stats, statsField);
     const distance = euclideanZDistance(zTarget, z, stats);
     rows.push({ player: p, distance });

@@ -315,7 +315,7 @@ export default function ComparePage() {
                 <div style={{ fontFamily: MONO, fontSize: "2.75rem", fontWeight: 700, color: scoreA > scoreB ? "var(--primary)" : "var(--text-muted)", lineHeight: 1, marginBottom: "0.5rem" }}>
                   {scoreA}
                 </div>
-                <Link to={`/player/${data.playerA.id}`} style={{ fontFamily: MONO, fontWeight: 700, fontSize: "0.9rem", color: "var(--primary)", textDecoration: "none", letterSpacing: "0.02em" }}>
+                <Link to={`/compare?p1=${encodeURIComponent(data.playerA.id)}&p2=${encodeURIComponent(data.playerB.id)}`} style={{ fontFamily: MONO, fontWeight: 700, fontSize: "0.9rem", color: "var(--primary)", textDecoration: "none", letterSpacing: "0.02em" }}>
                   {data.playerA.name}
                 </Link>
                 <div style={{ fontFamily: MONO, color: "var(--text-muted)", fontSize: "0.72rem", letterSpacing: "0.04em", marginTop: "0.25rem" }}>
@@ -329,7 +329,7 @@ export default function ComparePage() {
                 <div style={{ fontFamily: MONO, fontSize: "2.75rem", fontWeight: 700, color: scoreB > scoreA ? "var(--primary)" : "var(--text-muted)", lineHeight: 1, marginBottom: "0.5rem" }}>
                   {scoreB}
                 </div>
-                <Link to={`/player/${data.playerB.id}`} style={{ fontFamily: MONO, fontWeight: 700, fontSize: "0.9rem", color: "var(--primary)", textDecoration: "none", letterSpacing: "0.02em" }}>
+                <Link to={`/compare?p1=${encodeURIComponent(data.playerA.id)}&p2=${encodeURIComponent(data.playerB.id)}`} style={{ fontFamily: MONO, fontWeight: 700, fontSize: "0.9rem", color: "var(--primary)", textDecoration: "none", letterSpacing: "0.02em" }}>
                   {data.playerB.name}
                 </Link>
                 <div style={{ fontFamily: MONO, color: "var(--text-muted)", fontSize: "0.72rem", letterSpacing: "0.04em", marginTop: "0.25rem" }}>

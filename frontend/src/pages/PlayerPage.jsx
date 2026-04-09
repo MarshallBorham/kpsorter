@@ -145,7 +145,7 @@ export default function PlayerPage() {
     async function loadSimilar() {
       try {
         const res = await fetch(
-          `/api/players/${encodeURIComponent(playerId)}/similar?limit=12`
+          `/api/players/${encodeURIComponent(playerId)}/similar?limit=3`
         );
         const data = await res.json();
         if (cancelled) return;
@@ -337,9 +337,8 @@ export default function PlayerPage() {
                 lineHeight: 1.45,
                 letterSpacing: "0.02em",
               }}>
-                Euclidean distance in z-score space ({similarDimensions} stats: scoring, shooting, usage, rebounding,
-                playmaking, turnovers, stocks, BPM, key percentages, FT rate, Min). Pool: players with
-                Min ≥ 15%. Lower distance = closer statistical profile.
+                Top 3 closest profiles in z-score space ({similarDimensions} stats). Pool: Min ≥ 15%.
+                Similarity is a score from 0–100% (higher = closer); the current player is never included.
               </p>
               {similar === null && (
                 <p style={{ fontFamily: MONO, fontSize: "0.72rem", color: "var(--text-muted)" }}>
@@ -376,7 +375,7 @@ export default function PlayerPage() {
                       }}
                     >
                       <Link
-                        to={`/player/${s.id}`}
+                        to={`/compare?p1=${encodeURIComponent(playerId)}&p2=${encodeURIComponent(s.id)}`}
                         style={{
                           fontFamily: MONO,
                           fontWeight: 700,
@@ -396,8 +395,8 @@ export default function PlayerPage() {
                       }}>
                         {s.team ?? "—"}
                         {" · "}
-                        <span style={{ color: "var(--text-dim)" }} title="Euclidean distance (z-space)">
-                          Δ {s.distance}
+                        <span style={{ color: "var(--text-dim)" }} title="Similarity (0–100%)">
+                          {typeof s.similarityPercent === "number" ? `${s.similarityPercent}%` : "—"}
                         </span>
                       </span>
                     </li>

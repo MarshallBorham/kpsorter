@@ -17,6 +17,7 @@ import {
 } from "../utils/teamDepthProfile.js";
 import {
   findSimilarByZDistance,
+  distanceToSimilarityPercent,
   SIMILARITY_STATS,
 } from "../utils/playerSimilarity.js";
 import { logEvent } from "../logEvent.js";
@@ -528,8 +529,8 @@ playerRouter.post("/:playerId/comments", requireAuth, async (req, res) => {
 playerRouter.get("/:playerId/similar", async (req, res) => {
   try {
     const { playerId } = req.params;
-    const rawLimit = parseInt(String(req.query.limit ?? "12"), 10);
-    const limit = Number.isFinite(rawLimit) ? Math.min(25, Math.max(1, rawLimit)) : 12;
+    const rawLimit = parseInt(String(req.query.limit ?? "3"), 10);
+    const limit = Number.isFinite(rawLimit) ? Math.min(25, Math.max(1, rawLimit)) : 3;
 
     const target = await Player.findOne({ id: playerId }).lean();
     if (!target) return res.status(404).json({ error: "Player not found" });
@@ -546,6 +547,7 @@ playerRouter.get("/:playerId/similar", async (req, res) => {
 
     const matches = findSimilarByZDistance(target, pool, { limit, stats: SIMILARITY_STATS });
 
+    const dims = SIMILARITY_STATS.length;
     const similar = matches.map(({ player: p, distance }) => ({
       id: p.id,
       name: p.name,
@@ -554,13 +556,13 @@ playerRouter.get("/:playerId/similar", async (req, res) => {
       position: p.position,
       height: p.height,
       inPortal: !!p.inPortal,
-      distance: Math.round(distance * 1000) / 1000,
+      similarityPercent: distanceToSimilarityPercent(distance, dims),
     }));
 
     res.json({
       similar,
       metric: "euclidean_z",
-      dimensions: SIMILARITY_STATS.length,
+      dimensions: dims,
       poolFilter: "stats.Min >= 15",
     });
   } catch (err) {
