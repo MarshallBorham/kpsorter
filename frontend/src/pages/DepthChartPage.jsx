@@ -5,29 +5,31 @@ import Header from "../components/Header.jsx";
 const MONO = "var(--font-mono)";
 const SLOTS = ["PG", "SG", "SF", "PF", "C"];
 
-const CHART_TRACK_H = 104;
+const CHART_TRACK_H = 96;
+const BAR_COL_W = 28;
 
 function TeamProfileBars({ teamProfile }) {
   const bars = teamProfile?.bars ?? [];
   if (bars.length === 0) return null;
   return (
-    <div style={{ marginBottom: "1rem" }}>
+    <div style={{ marginTop: "1.1rem", paddingTop: "0.85rem", borderTop: "1px solid var(--border)" }}>
       <div
         style={{
           display: "flex",
           alignItems: "flex-end",
-          justifyContent: "space-between",
-          gap: "0.35rem",
-          height: CHART_TRACK_H + 36,
-          paddingTop: "0.35rem",
+          justifyContent: "center",
+          flexWrap: "wrap",
+          gap: "0.5rem 0.45rem",
+          height: CHART_TRACK_H + 44,
+          paddingTop: "0.25rem",
         }}
       >
         {bars.map((b) => (
           <div
             key={b.key}
             style={{
-              flex: "1 1 0",
-              minWidth: 0,
+              width: BAR_COL_W,
+              flex: "0 0 auto",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -37,11 +39,11 @@ function TeamProfileBars({ teamProfile }) {
             <span
               style={{
                 fontFamily: MONO,
-                fontSize: "0.62rem",
+                fontSize: "0.78rem",
                 fontWeight: 700,
                 color: "var(--text-muted)",
-                marginBottom: "0.2rem",
-                minHeight: "1em",
+                marginBottom: "0.25rem",
+                minHeight: "1.1em",
               }}
             >
               {b.value != null ? b.value : "—"}
@@ -49,8 +51,7 @@ function TeamProfileBars({ teamProfile }) {
             <div
               style={{
                 flex: 1,
-                width: "100%",
-                maxWidth: 56,
+                width: BAR_COL_W,
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "flex-end",
@@ -60,8 +61,8 @@ function TeamProfileBars({ teamProfile }) {
               <div
                 style={{
                   height: CHART_TRACK_H,
-                  width: "100%",
-                  borderRadius: "var(--radius)",
+                  width: BAR_COL_W,
+                  borderRadius: "var(--radius-sm, 4px)",
                   background: "var(--surface-2)",
                   border: "1px solid var(--border)",
                   display: "flex",
@@ -77,7 +78,7 @@ function TeamProfileBars({ teamProfile }) {
                       minHeight: b.value > 0 ? 2 : 0,
                       width: "100%",
                       background: "var(--success)",
-                      borderRadius: "var(--radius) var(--radius) 0 0",
+                      borderRadius: "var(--radius-sm, 4px) var(--radius-sm, 4px) 0 0",
                     }}
                   />
                 ) : null}
@@ -86,14 +87,14 @@ function TeamProfileBars({ teamProfile }) {
             <span
               style={{
                 fontFamily: MONO,
-                fontSize: "0.52rem",
+                fontSize: "0.65rem",
                 fontWeight: 600,
                 letterSpacing: "0.02em",
                 textAlign: "center",
                 color: "var(--text-muted)",
-                marginTop: "0.35rem",
-                lineHeight: 1.2,
-                maxWidth: "100%",
+                marginTop: "0.4rem",
+                lineHeight: 1.25,
+                maxWidth: 72,
               }}
             >
               {b.label}
@@ -104,11 +105,11 @@ function TeamProfileBars({ teamProfile }) {
       <p
         style={{
           fontFamily: MONO,
-          fontSize: "0.58rem",
+          fontSize: "0.7rem",
           color: "var(--text-dim)",
-          margin: "0.5rem 0 0",
+          margin: "0.55rem 0 0",
           letterSpacing: "0.03em",
-          lineHeight: 1.35,
+          lineHeight: 1.4,
         }}
       >
         Bars: Min-weighted mean percentile vs. national pool (Min ≥ 15%). Stl/Blk and playmaking average
@@ -230,7 +231,6 @@ export default function DepthChartPage() {
                 }}>
                   {team.name}
                 </h2>
-                <TeamProfileBars teamProfile={team.teamProfile} />
                 <div style={{ overflowX: "auto" }}>
                   <div style={{
                     display: "grid",
@@ -297,6 +297,7 @@ export default function DepthChartPage() {
                     ))}
                   </div>
                 </div>
+                <TeamProfileBars teamProfile={team.teamProfile} />
               </section>
             ))}
           </div>
