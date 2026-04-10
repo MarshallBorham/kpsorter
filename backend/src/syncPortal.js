@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
 import { Player } from "./models/Player.js";
 import { getEnvVar } from "./getEnvVar.js";
-import { TEAM_DB_ALIASES } from "./data/portalConferenceMap.js";
+import { TEAM_DB_ALIASES, PORTAL_CONFERENCE_MAP } from "./data/portalConferenceMap.js";
+
+const ALL_CANONICAL_TEAMS = new Set(
+  Object.values(PORTAL_CONFERENCE_MAP).flatMap((s) => [...s])
+);
 import "dotenv/config";
 
 const MONGO_URI = getEnvVar("MONGODB_URI");
@@ -115,23 +119,25 @@ function resolveDbTeamName(vcSchoolName, distinctTeams) {
   if (!vcSchoolName || !String(vcSchoolName).trim()) return null;
   const raw = String(vcSchoolName).trim();
   const lower = raw.toLowerCase();
+
+  // 1. Exact match against existing DB teams
   for (const t of distinctTeams) {
     if (!t) continue;
     if (t.toLowerCase() === lower) return t;
   }
+
+  // 2. Fuzzy match against existing DB teams
   let best = null;
   let bestD = Infinity;
   for (const t of distinctTeams) {
     if (!t) continue;
     if (!schoolMatches(raw, t)) continue;
     const d = editDistance(normalizeSchool(raw), normalizeSchool(t));
-    if (d < bestD) {
-      bestD = d;
-      best = t;
-    }
+    if (d < bestD) { bestD = d; best = t; }
   }
   if (best) return best;
 
+  // 3. Alias table → DB teams
   for (const [alt, canon] of Object.entries(TEAM_DB_ALIASES)) {
     if (!schoolMatches(raw, alt) && !schoolMatches(raw, canon)) continue;
     const direct =
@@ -139,12 +145,28 @@ function resolveDbTeamName(vcSchoolName, distinctTeams) {
       distinctTeams.find((t) => schoolMatches(t, alt) || schoolMatches(t, canon));
     if (direct) return direct;
   }
+
+  // 4. Fallback: match against the full canonical team list from PORTAL_CONFERENCE_MAP.
+  //    Covers schools that currently have no players in the DB (e.g. everyone transferred out).
+  for (const t of ALL_CANONICAL_TEAMS) {
+    if (t.toLowerCase() === lower) return t;
+  }
+  let canonBest = null;
+  let canonBestD = Infinity;
+  for (const t of ALL_CANONICAL_TEAMS) {
+    if (!schoolMatches(raw, t)) continue;
+    const d = editDistance(normalizeSchool(raw), normalizeSchool(t));
+    if (d < canonBestD) { canonBestD = d; canonBest = t; }
+  }
+  if (canonBest) return canonBest;
+
   return null;
 }
 
 /**
- * True when VC row represents a commitment (no longer listing as active portal only).
- * Field names vary; keep checks conservative to avoid mapping rumors to teams.
+ * True when VC row represents a commitment (player has chosen a destination).
+ * Some rows have fully-populated destination fields but no status strings at all —
+ * in that case a non-empty toSchoolName is sufficient to treat as committed.
  */
 function isCommittedTransfer(p) {
   const to = String(p.toSchoolName ?? "").trim();
@@ -153,12 +175,15 @@ function isCommittedTransfer(p) {
   const status = String(p.transferStatusName ?? p.transferStatus ?? "").trim().toLowerCase();
   const decision = String(p.transferDecisionType ?? "").trim().toLowerCase();
 
-  if (status.includes("portal") && !/commit|sign|nli|enroll/i.test(status)) {
-    return false;
-  }
+  // Explicit "still searching" status overrides destination field
+  if (status.includes("portal") && !/commit|sign|nli|enroll/i.test(status)) return false;
+
+  // Explicit commitment indicators
   if (/verbally committed|committed|\bsigned\b|enrolled|\bnli\b|signed nli/i.test(status)) return true;
   if (/verbally|committed|signed|enrolled|nli/i.test(decision)) return true;
-  return false;
+
+  // toSchoolName is populated but status fields are absent — destination alone is sufficient
+  return true;
 }
 
 function fuzzyMatchPortalPlayer(p, fromSchool, allDbPlayers) {

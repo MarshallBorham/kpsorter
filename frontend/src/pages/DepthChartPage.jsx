@@ -60,50 +60,80 @@ function TeamProfileBars({ teamProfile }) {
                     fontSize: "0.78rem",
                     fontWeight: 700,
                     color: "var(--text-muted)",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  {b.value != null ? b.value : "—"}
+                  {b.value != null ? b.value : "N/A"}
+                  {b.fullValue != null && b.fullValue !== b.value ? (
+                    <span
+                      style={{
+                        fontWeight: 400,
+                        fontSize: "0.68rem",
+                        color: "var(--text-dim)",
+                      }}
+                    >
+                      {" "}({b.fullValue})
+                    </span>
+                  ) : null}
                 </span>
               </div>
             ))}
-            {bars.map((b) => (
-              <div
-                key={`${b.key}-bar`}
-                style={{
-                  height: CHART_TRACK_H,
-                  display: "flex",
-                  alignItems: "flex-end",
-                  justifyContent: "center",
-                  boxSizing: "border-box",
-                }}
-              >
+            {bars.map((b) => {
+              const hasSeniorDelta = b.fullValue != null && b.value != null && b.fullValue > b.value;
+              return (
                 <div
+                  key={`${b.key}-bar`}
                   style={{
                     height: CHART_TRACK_H,
-                    width: BAR_COL_W,
-                    borderRadius: "var(--radius-sm, 4px)",
-                    background: "var(--surface-2)",
-                    border: "1px solid var(--border)",
                     display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "flex-end",
-                    overflow: "hidden",
+                    alignItems: "flex-end",
+                    justifyContent: "center",
+                    boxSizing: "border-box",
                   }}
                 >
-                  {b.value != null ? (
-                    <div
-                      style={{
-                        height: `${b.value}%`,
-                        minHeight: b.value > 0 ? 2 : 0,
-                        width: "100%",
-                        background: "var(--success)",
-                        borderRadius: "var(--radius-sm, 4px) var(--radius-sm, 4px) 0 0",
-                      }}
-                    />
-                  ) : null}
+                  <div
+                    style={{
+                      position: "relative",
+                      height: CHART_TRACK_H,
+                      width: BAR_COL_W,
+                      borderRadius: "var(--radius-sm, 4px)",
+                      background: "var(--surface-2)",
+                      border: "1px solid var(--border)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {hasSeniorDelta && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: `${b.fullValue}%`,
+                          borderTop: "2px dashed var(--text-muted)",
+                          boxSizing: "border-box",
+                          opacity: 0.5,
+                        }}
+                      />
+                    )}
+                    {b.value != null ? (
+                      <div
+                        style={{
+                          position: "absolute",
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: `${b.value}%`,
+                          minHeight: b.value > 0 ? 2 : 0,
+                          background: "var(--success)",
+                          borderRadius: "var(--radius-sm, 4px) var(--radius-sm, 4px) 0 0",
+                        }}
+                      />
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {bars.map((b) => (
               <span
                 key={`${b.key}-lbl`}
@@ -141,8 +171,7 @@ function TeamProfileBars({ teamProfile }) {
           lineHeight: 1.4,
         }}
       >
-        Bars: Min-weighted mean percentile vs. national pool (Min ≥ 15%). Stl/Blk and playmaking average
-        sub-stat percentiles when both exist (same idea as player radar).
+        Ratings 1–99 vs. all D1 teams (worst=1, best=99, Min ≥ 15% pool). Fill / number = returning roster (seniors gone). Dashed outline / (n) = full current team incl. seniors. N/A = no qualifying players.
       </p>
     </div>
   );
@@ -230,9 +259,7 @@ export default function DepthChartPage() {
           </div>
         </div>
 
-        <p style={{ fontFamily: MONO, fontSize: "0.7rem", color: "var(--text-muted)", marginBottom: "1.25rem", letterSpacing: "0.03em" }}>
-          * Player is in the transfer portal.
-        </p>
+
 
         {loading && <p className="status-msg">Loading depth charts…</p>}
         {error && <p className="status-msg error">{error}</p>}
@@ -326,7 +353,21 @@ export default function DepthChartPage() {
                     ))}
                   </div>
                 </div>
-                <TeamProfileBars teamProfile={team.teamProfile} />
+                {team.portalPlayers?.length > 0 && (
+                  <p style={{
+                    fontFamily: MONO,
+                    fontSize: "0.72rem",
+                    color: "var(--text-muted)",
+                    margin: "0.85rem 0 0",
+                    lineHeight: 1.5,
+                  }}>
+                    <span style={{ fontWeight: 700, color: "var(--text)" }}>Portal:</span>{" "}
+                    {team.portalPlayers.map((p) => {
+                      const parts = [p.height, p.position, p.year].filter(Boolean).join(" ");
+                      return `${p.name}${parts ? ` (${parts})` : ""}`;
+                    }).join(", ")}
+                  </p>
+                )}
               </section>
             ))}
           </div>

@@ -2,81 +2,59 @@ import { statGet } from "./depthChart.js";
 
 const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
 
-const POOL_STATS = [
-  "Close2P",
-  "3P",
-  "Far2P",
-  "Stl",
-  "Blk",
-  "OR",
-  "DR",
-  "APG",
-  "ARate",
-  "TO",
-];
-
 const TEAM_PROFILE_CATEGORIES = [
-  { key: "close2", label: "Close 2", type: "single", stat: "Close2P" },
-  { key: "three", label: "3PT", type: "single", stat: "3P" },
-  { key: "far2", label: "Far 2", type: "single", stat: "Far2P" },
-  { key: "stocks", label: "Stl / Blk", type: "blend", stats: ["Stl", "Blk"] },
-  { key: "orb", label: "Offensive rebounding", type: "single", stat: "OR" },
-  { key: "drb", label: "Defensive rebounding", type: "single", stat: "DR" },
-  { key: "play", label: "Playmaking", type: "blend", stats: ["APG", "ARate"] },
-  { key: "tov", label: "Ball security", type: "single", stat: "TO" },
+  {
+    key: "close2",
+    label: "Close 2",
+    type: "shooting",
+    statPct: "Close2P",
+    statMakes: "Close2PM",
+  },
+  {
+    key: "three",
+    label: "3PT",
+    type: "shooting",
+    statPct: "3P",
+    statMakes: "3PM",
+  },
+  {
+    key: "far2",
+    label: "Far 2",
+    type: "shooting",
+    statPct: "Far2P",
+    statMakes: "Far2PM",
+  },
+  {
+    key: "stocks",
+    label: "Stl / Blk",
+    type: "blend_product",
+    stats: ["Stl", "Blk"],
+  },
+  {
+    key: "orb",
+    label: "Offensive rebounding",
+    type: "rebound",
+    stat: "OR",
+  },
+  {
+    key: "drb",
+    label: "Defensive rebounding",
+    type: "rebound",
+    stat: "DR",
+  },
+  {
+    key: "play",
+    label: "Playmaking",
+    type: "blend_product",
+    stats: ["APG", "ARate"],
+  },
+  {
+    key: "tov",
+    label: "Ball security",
+    type: "product",
+    stat: "TO",
+  },
 ];
-
-function buildPoolValueGetter(stat, pool) {
-  const values = pool
-    .map((p) => {
-      const v = statGet(p, stat);
-      const n = v == null || v === "" ? 0 : Number(v);
-      return Number.isFinite(n) ? n : 0;
-    })
-    .sort((a, b) => a - b);
-  const total = values.length;
-  if (total === 0) {
-    return () => null;
-  }
-  return function getPercentile(val) {
-    const raw = val == null || val === "" ? 0 : Number(val);
-    const n = Number.isFinite(raw) ? raw : 0;
-    let low = 0;
-    let high = total;
-    while (low < high) {
-      const mid = (low + high) >>> 1;
-      if (values[mid] < n) low = mid + 1;
-      else high = mid;
-    }
-    const pct = Math.round((low / total) * 100);
-    return LOWER_IS_BETTER.has(stat) ? 100 - pct : pct;
-  };
-}
-
-export function buildDepthTeamProfileGetters(pool) {
-  const getters = {};
-  for (const s of POOL_STATS) {
-    getters[s] = buildPoolValueGetter(s, pool);
-  }
-  return getters;
-}
-
-function finiteNumberStat(raw) {
-  if (raw != null && typeof raw === "number" && Number.isFinite(raw)) return raw;
-  return null;
-}
-
-function blendPlayerPercentiles(player, getters, statKeys) {
-  const pcts = [];
-  for (const k of statKeys) {
-    const n = finiteNumberStat(statGet(player, k));
-    if (n == null) continue;
-    const pct = getters[k](n);
-    if (pct != null) pcts.push(pct);
-  }
-  if (pcts.length === 0) return null;
-  return Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length);
-}
 
 function playerMinWeight(p) {
   const raw = statGet(p, "Min");
@@ -85,31 +63,164 @@ function playerMinWeight(p) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+function numStat(p, key) {
+  const v = statGet(p, key);
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 /**
- * @param {object[]} rosterPlayers - Full Player docs (same roster as depth-chart).
- * @param {Record<string, (val: unknown) => number|null>} getters - from buildDepthTeamProfileGetters
+ * Volume-efficiency product: sum(stat_i * Min_i).
+ * Removing any contributor always lowers the score.
+ * Returns null if no qualifying players.
+ */
+function teamProduct(players, stat) {
+  let total = 0;
+  let hasAny = false;
+  for (const p of players) {
+    const w = playerMinWeight(p);
+    if (w <= 0) continue;
+    const n = numStat(p, stat);
+    if (n == null) continue;
+    total += n * w;
+    hasAny = true;
+  }
+  return hasAny ? total : null;
+}
+
+/**
+ * Shooting aggregates for a group of players.
+ * Volume  = sum(makes_i)  — total makes on the roster.
+ * Efficiency = sum(pct_i * makes_i) / sum(makes_i) — makes-weighted team shooting %.
+ * Returns null if no player has both a valid makes and pct value.
+ */
+function teamShootingAgg(players, statPct, statMakes) {
+  let totalMakes = 0;
+  let weightedPctSum = 0;
+  let hasAny = false;
+  for (const p of players) {
+    const makes = numStat(p, statMakes);
+    if (makes == null || makes <= 0) continue;
+    const pct = numStat(p, statPct);
+    if (pct == null) continue;
+    totalMakes += makes;
+    weightedPctSum += pct * makes;
+    hasAny = true;
+  }
+  if (!hasAny || totalMakes <= 0) return null;
+  return { volume: totalMakes, efficiency: weightedPctSum / totalMakes };
+}
+
+/** Build a linear 1–99 rater from an array of team values. */
+function makeLinearRater(values) {
+  if (values.length === 0) return () => null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  return (val) => {
+    if (val == null) return null;
+    if (max === min) return 50;
+    const ratio = (val - min) / (max - min);
+    return Math.max(1, Math.min(99, Math.round(1 + ratio * 98)));
+  };
+}
+
+/**
+ * Build team-level rating functions from the national pool.
+ *
+ * Shooting categories (3PT, Close2, Far2):
+ *   - Volume rater: total makes across roster, 1–99 vs all teams.
+ *   - Efficiency rater: makes-weighted team shooting %, 1–99 vs all teams.
+ *   Final rating = average of the two.
+ *
+ * Rebounding / product categories:
+ *   - sum(stat * Min) per team, 1–99 vs all teams.
+ */
+export function buildDepthTeamProfileGetters(pool) {
+  const teamMap = new Map();
+  for (const p of pool) {
+    const team = p.team;
+    if (!team) continue;
+    if (!teamMap.has(team)) teamMap.set(team, []);
+    teamMap.get(team).push(p);
+  }
+
+  const getters = {};
+
+  // ── Shooting getters ──────────────────────────────────────────────────────
+  const SHOOTING = [
+    { statPct: "Close2P", statMakes: "Close2PM" },
+    { statPct: "3P",      statMakes: "3PM" },
+    { statPct: "Far2P",   statMakes: "Far2PM" },
+  ];
+  for (const { statPct, statMakes } of SHOOTING) {
+    const volumeVals = [];
+    const efficiencyVals = [];
+    for (const players of teamMap.values()) {
+      const agg = teamShootingAgg(players, statPct, statMakes);
+      if (agg == null) continue;
+      volumeVals.push(agg.volume);
+      efficiencyVals.push(agg.efficiency);
+    }
+    const volumeRater = makeLinearRater(volumeVals);
+    const efficiencyRater = makeLinearRater(efficiencyVals);
+    getters[`${statPct}_volume`] = volumeRater;
+    getters[`${statPct}_efficiency`] = efficiencyRater;
+  }
+
+  // ── Product getters (rebound, stocks, playmaking, TO) ─────────────────────
+  const PRODUCT_STATS = ["OR", "DR", "Stl", "Blk", "APG", "ARate", "TO"];
+  for (const stat of PRODUCT_STATS) {
+    const teamVals = [];
+    for (const players of teamMap.values()) {
+      const vol = teamProduct(players, stat);
+      if (vol != null) teamVals.push(vol);
+    }
+    const rater = makeLinearRater(teamVals);
+    getters[`${stat}_product`] = (val) => {
+      const r = rater(val);
+      return LOWER_IS_BETTER.has(stat) && r != null ? 100 - r : r;
+    };
+  }
+
+  return getters;
+}
+
+/**
+ * @param {object[]} rosterPlayers - Players to profile (full team or seniors-excluded roster).
+ * @param {Record<string, function>} getters - from buildDepthTeamProfileGetters
  */
 export function computeTeamDepthProfile(rosterPlayers, getters) {
   const bars = TEAM_PROFILE_CATEGORIES.map((cat) => {
-    let sumWP = 0;
-    let sumW = 0;
-    for (const p of rosterPlayers) {
-      const w = playerMinWeight(p);
-      if (w <= 0) continue;
+    let value = null;
 
-      let pc = null;
-      if (cat.type === "single") {
-        const n = finiteNumberStat(statGet(p, cat.stat));
-        if (n == null) continue;
-        pc = getters[cat.stat](n);
-      } else {
-        pc = blendPlayerPercentiles(p, getters, cat.stats);
+    if (cat.type === "shooting") {
+      const agg = teamShootingAgg(rosterPlayers, cat.statPct, cat.statMakes);
+      if (agg != null) {
+        const volRating = getters[`${cat.statPct}_volume`](agg.volume);
+        const effRating = getters[`${cat.statPct}_efficiency`](agg.efficiency);
+        if (volRating != null && effRating != null) {
+          value = Math.round((volRating + effRating) / 2);
+        } else {
+          value = volRating ?? effRating;
+        }
       }
-      if (pc == null) continue;
-      sumWP += pc * w;
-      sumW += w;
+    } else if (cat.type === "rebound" || cat.type === "product") {
+      const vol = teamProduct(rosterPlayers, cat.stat);
+      if (vol != null) value = getters[`${cat.stat}_product`](vol);
+    } else if (cat.type === "blend_product") {
+      const ratings = [];
+      for (const stat of cat.stats) {
+        const vol = teamProduct(rosterPlayers, stat);
+        if (vol == null) continue;
+        const r = getters[`${stat}_product`](vol);
+        if (r != null) ratings.push(r);
+      }
+      if (ratings.length > 0) {
+        value = Math.round(ratings.reduce((a, b) => a + b, 0) / ratings.length);
+      }
     }
-    const value = sumW > 0 ? Math.round(sumWP / sumW) : null;
+
     return { key: cat.key, label: cat.label, value };
   });
   return { bars };

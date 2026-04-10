@@ -15,7 +15,7 @@ export function isSeniorYearExcluded(year) {
 
 export function filterDepthChartRoster(players) {
   if (!players?.length) return [];
-  return players.filter((p) => !isSeniorYearExcluded(p.year));
+  return players.filter((p) => !isSeniorYearExcluded(p.year) && !p.inPortal);
 }
 
 /**
@@ -64,7 +64,7 @@ function playerHeightDisplay(p) {
   return `${ft}-${inn}`;
 }
 
-function depthChartSlotForPlayer(p) {
+export function depthChartSlotForPlayer(p) {
   const pos = p.position;
   if (!pos) return null;
   const h = playerHeightInches(p);

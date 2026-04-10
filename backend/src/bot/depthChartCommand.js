@@ -3,6 +3,7 @@ import {
   buildTeamDepth,
   resolveUserTeamToCanonical,
   fetchRosterPlayersForCanonicalTeam,
+  depthChartSlotForPlayer,
   DEPTH_SLOTS,
 } from "../utils/depthChart.js";
 import { recordDiscordDepthChartUsage } from "../logEvent.js";
@@ -79,6 +80,17 @@ export async function handleDepthChart(interaction) {
       value = `${value.slice(0, 1020)}…`;
     }
     embed.addFields({ name: slot, value, inline: true });
+  }
+
+  const portalPlayers = roster.filter((p) => p.inPortal);
+  if (portalPlayers.length > 0) {
+    const portalLine = portalPlayers.map((p) => {
+      const pos = depthChartSlotForPlayer(p) ?? p.position ?? null;
+      const parts = [p.height, pos, p.year].filter(Boolean).join(" ");
+      return `${p.name}${parts ? ` (${parts})` : ""}`;
+    }).join(", ");
+    let portalValue = portalLine.length > 1024 ? `${portalLine.slice(0, 1020)}…` : portalLine;
+    embed.addFields({ name: "Portal", value: portalValue, inline: false });
   }
 
   await interaction.editReply({ embeds: [embed] });

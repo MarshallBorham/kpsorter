@@ -10,7 +10,7 @@ import {
   resolveCanonicalTeamName,
   expandQueryTeamNames,
 } from "../data/portalConferenceMap.js";
-import { buildTeamDepth, filterDepthChartRoster } from "../utils/depthChart.js";
+import { buildTeamDepth, filterDepthChartRoster, depthChartSlotForPlayer, depthChartDisplayYear } from "../utils/depthChart.js";
 import {
   buildDepthTeamProfileGetters,
   computeTeamDepthProfile,
@@ -447,11 +447,27 @@ playerRouter.get("/depth-chart", async (req, res) => {
     }
 
     const teams = teamNames.map((name) => {
-      const roster = filterDepthChartRoster(byTeam.get(name));
+      const allTeamPlayers = byTeam.get(name);
+      const roster = filterDepthChartRoster(allTeamPlayers);
+      const fullProfile = computeTeamDepthProfile(allTeamPlayers, profileGetters);
+      const currentProfile = computeTeamDepthProfile(roster, profileGetters);
+      const bars = currentProfile.bars.map((bar, i) => ({
+        ...bar,
+        fullValue: fullProfile.bars[i].value,
+      }));
+      const portalPlayers = allTeamPlayers
+        .filter((p) => p.inPortal)
+        .map((p) => ({
+          name: p.name,
+          height: p.height ?? null,
+          position: depthChartSlotForPlayer(p) ?? p.position ?? null,
+          year: p.year ?? null,
+        }));
       return {
         name,
         depth: buildTeamDepth(roster),
-        teamProfile: computeTeamDepthProfile(roster, profileGetters),
+        teamProfile: { bars },
+        portalPlayers,
       };
     });
 
