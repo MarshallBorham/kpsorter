@@ -1,36 +1,26 @@
 import express from "express";
 import { User } from "../models/User.js";
 import { Player } from "../models/Player.js";
+import { PlayerTrend } from "../models/PlayerTrend.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const watchlistRouter = express.Router();
 
 watchlistRouter.get("/trending", async (req, res) => {
   try {
-    const allUsers = await User.find({}, "watchlist");
+    const top = await PlayerTrend.find()
+      .sort({ trendingTotal: -1 })
+      .limit(3)
+      .lean();
 
-    const counts = {};
-    for (const user of allUsers) {
-      const seen = new Set();
-      for (const entry of user.watchlist) {
-        if (!seen.has(entry.playerId)) {
-          counts[entry.playerId] = (counts[entry.playerId] || 0) + 1;
-          seen.add(entry.playerId);
-        }
-      }
-    }
-
-    const top3 = await Promise.all(
-      Object.entries(counts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(async ([playerId]) => {
-          const player = await Player.findOne({ id: playerId }).lean();
-          return player ? { playerId, name: player.name, team: player.team } : null;
-        })
+    const results = await Promise.all(
+      top.map(async ({ playerId }) => {
+        const player = await Player.findOne({ id: playerId }).lean();
+        return player ? { playerId, name: player.name, team: player.team } : null;
+      })
     );
 
-    res.json(top3.filter(Boolean).slice(0, 3));
+    res.json(results.filter(Boolean));
   } catch (err) {
     console.error("Trending error:", err);
     res.status(500).json({ error: "Server error" });

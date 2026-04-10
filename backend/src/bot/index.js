@@ -9,6 +9,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import { Player } from "../models/Player.js";
+import { PlayerTrend } from "../models/PlayerTrend.js";
 import { User } from "../models/User.js";
 import { getOrCreateUserForDiscord } from "../utils/discordAccount.js";
 import { recordComparison } from "../utils/recordComparison.js";
@@ -741,6 +742,7 @@ export async function startBot() {
           return;
         }
 
+        PlayerTrend.updateOne({ playerId: player.id }, { $inc: { trendingTotal: 1 } }, { upsert: true }).catch(() => {});
         await editReplyWithPlayerEmbedAndRadar(interaction, player, null, top100);
       }
 
@@ -921,6 +923,7 @@ export async function startBot() {
           return;
         }
 
+        PlayerTrend.updateOne({ playerId: player.id }, { $inc: { trendingTotal: 1 } }, { upsert: true }).catch(() => {});
         await editReplyWithPlayerEmbedAndRadar(interaction, player, interaction.user.username, top100);
       }
 
