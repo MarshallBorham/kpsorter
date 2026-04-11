@@ -26,8 +26,8 @@ import {
 const WEB_APP_BASE = "https://cbb.up.railway.app";
 
 const ALLOWED_GUILDS = new Set([
-  "800261752540364840",
-  "1181335653703749783"
+  // "800261752540364840",
+  // "1181335653703749783"
 ]);
 
 const HM_TEAMS = new Set([
