@@ -15,7 +15,9 @@ export default function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const searchRef = useRef(null);
+  const inputRef = useRef(null);
   const debounceRef = useRef(null);
 
   useEffect(() => {
@@ -27,6 +29,9 @@ export default function Header() {
     function handleClickOutside(e) {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setSearchOpen(false);
+        setSearchExpanded(false);
+        setSearchQuery("");
+        setSearchResults([]);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -53,11 +58,22 @@ export default function Header() {
     setSearchQuery("");
     setSearchResults([]);
     setSearchOpen(false);
+    setSearchExpanded(false);
     navigate(`/player/${player.id}`);
   }
 
   function handleSearchKeyDown(e) {
-    if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); }
+    if (e.key === "Escape") {
+      setSearchOpen(false);
+      setSearchExpanded(false);
+      setSearchQuery("");
+      setSearchResults([]);
+    }
+  }
+
+  function handleIconClick() {
+    setSearchExpanded(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
   }
 
   function handleLogout() {
@@ -89,25 +105,50 @@ export default function Header() {
           </nav>
 
           {/* Player search */}
-          <div ref={searchRef} style={{ position: "relative", flexShrink: 0 }}>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={handleSearchInput}
-              onKeyDown={handleSearchKeyDown}
-              placeholder="Search players…"
-              style={{
-                fontFamily: MONO,
-                fontSize: "0.7rem",
-                padding: "0.3rem 0.65rem",
-                background: "var(--bg)",
-                border: "1px solid var(--border)",
-                borderRadius: "var(--radius)",
-                color: "var(--text)",
-                width: "160px",
-                outline: "none",
-              }}
-            />
+          <div ref={searchRef} style={{ position: "relative", flexShrink: 0, display: "flex", alignItems: "center" }}>
+            {!searchExpanded && (
+              <button
+                type="button"
+                onClick={handleIconClick}
+                aria-label="Search players"
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  padding: "0.2rem 0.3rem",
+                  display: "flex",
+                  alignItems: "center",
+                  lineHeight: 1,
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              </button>
+            )}
+            {searchExpanded && (
+              <input
+                ref={inputRef}
+                type="text"
+                value={searchQuery}
+                onChange={handleSearchInput}
+                onKeyDown={handleSearchKeyDown}
+                placeholder="Search players…"
+                style={{
+                  fontFamily: MONO,
+                  fontSize: "0.7rem",
+                  padding: "0.3rem 0.65rem",
+                  background: "var(--bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius)",
+                  color: "var(--text)",
+                  width: "160px",
+                  outline: "none",
+                }}
+              />
+            )}
             {searchOpen && searchResults.length > 0 && (
               <ul style={{
                 position: "absolute",
