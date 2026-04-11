@@ -10,6 +10,7 @@ import { authRouter } from "./routes/authRoutes.js";
 import { playerRouter } from "./routes/playerRoutes.js";
 import { watchlistRouter } from "./routes/watchlistRoutes.js";
 import { startBot } from "./bot/index.js";
+import { loadPlayerStore, reloadPlayerStore } from "./utils/playerStore.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number.parseInt(getEnvVar("PORT", false), 10) || 3000;
@@ -30,8 +31,9 @@ app.get("/{*path}", (req, res) => {
 
 mongoose
   .connect(MONGO_URI)
-  .then(() => {
+  .then(async () => {
     console.log("Connected to MongoDB");
+    await loadPlayerStore();
     app.listen(PORT, () => {
       console.log(`Server running at http://localhost:${PORT}. CTRL+C to stop.`);
     });
@@ -48,6 +50,7 @@ mongoose
         if (stdout) console.log("[cron] Portal sync output:\n", stdout);
         if (stderr) console.error("[cron] Portal sync stderr:\n", stderr);
         console.log("[cron] Portal sync complete.");
+        reloadPlayerStore().catch(e => console.error("[cron] Player store reload failed:", e.message));
       });
     });
 

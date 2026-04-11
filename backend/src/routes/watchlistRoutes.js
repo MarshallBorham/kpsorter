@@ -1,26 +1,34 @@
 import express from "express";
 import { User } from "../models/User.js";
-import { Player } from "../models/Player.js";
 import { PlayerTrend } from "../models/PlayerTrend.js";
+import { getPlayerStore } from "../utils/playerStore.js";
 import { requireAuth } from "../middleware/auth.js";
+import { cacheGet, cacheSet } from "../utils/cache.js";
+
+const TTL_TRENDING = 2 * 60 * 1000; // 2 min
 
 export const watchlistRouter = express.Router();
 
 watchlistRouter.get("/trending", async (req, res) => {
   try {
+    const cached = cacheGet("trending");
+    if (cached) return res.json(cached);
+
     const top = await PlayerTrend.find()
       .sort({ trendingTotal: -1 })
       .limit(3)
       .lean();
 
-    const results = await Promise.all(
-      top.map(async ({ playerId }) => {
-        const player = await Player.findOne({ id: playerId }).lean();
+    const store = getPlayerStore();
+    const results = top
+      .map(({ playerId }) => {
+        const player = store.find((p) => p.id === playerId);
         return player ? { playerId, name: player.name, team: player.team } : null;
       })
-    );
+      .filter(Boolean);
 
-    res.json(results.filter(Boolean));
+    cacheSet("trending", results, TTL_TRENDING);
+    res.json(results);
   } catch (err) {
     console.error("Trending error:", err);
     res.status(500).json({ error: "Server error" });
@@ -32,10 +40,11 @@ watchlistRouter.get("/", requireAuth, async (req, res) => {
     const user = await User.findById(req.user.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
 
+    const store = getPlayerStore();
     const enriched = (
       await Promise.all(
         user.watchlist.map(async (entry) => {
-          const player = await Player.findOne({ id: entry.playerId }).lean();
+          const player = store.find((p) => p.id === entry.playerId) ?? null;
           if (!player) return null;
 
           const statValues = {};
@@ -73,7 +82,7 @@ watchlistRouter.post("/", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "playerId and stats array are required" });
   }
 
-  const playerExists = await Player.findOne({ id: playerId }).lean();
+  const playerExists = getPlayerStore().some((p) => p.id === playerId);
   if (!playerExists) {
     return res.status(404).json({ error: "Player not found" });
   }

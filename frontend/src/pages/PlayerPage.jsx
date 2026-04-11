@@ -140,18 +140,11 @@ export default function PlayerPage() {
       setLoading(true);
       setError("");
       try {
-        const [playerRes, pctRes] = await Promise.all([
-          fetch(`/api/players/${playerId}`),
-          fetch(`/api/players/compare?p1=${playerId}&p2=${playerId}`),
-        ]);
+        const playerRes = await fetch(`/api/players/${playerId}`);
         const playerData = await playerRes.json();
         if (!playerRes.ok) { setError(playerData.error || "Player not found"); return; }
         setPlayer(playerData);
-
-        if (pctRes.ok) {
-          const pctData = await pctRes.json();
-          setPercentiles(pctData.playerA?.statPcts || {});
-        }
+        setPercentiles(playerData.precomputedPcts || {});
       } catch {
         setError("Network error");
       } finally {

@@ -21,6 +21,12 @@ import {
   SIMILARITY_STATS,
 } from "../utils/playerSimilarity.js";
 import { logEvent } from "../logEvent.js";
+import { cacheGet, cacheSet } from "../utils/cache.js";
+import { getPlayerStore } from "../utils/playerStore.js";
+
+const TTL_SEARCH  = 5  * 60 * 1000; // 5 min
+const TTL_PROFILE = 5  * 60 * 1000; // 5 min
+const TTL_DEPTH   = 10 * 60 * 1000; // 10 min
 
 export const playerRouter = express.Router();
 
@@ -122,6 +128,11 @@ playerRouter.get("/", async (req, res) => {
     return res.status(400).json({ error: "Duplicate stats are not allowed" });
   }
 
+  // Check cache before doing any DB work
+  const cacheKey = `search:${JSON.stringify(req.query)}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return res.json(cached);
+
   let advancedFilters = [];
   if (filters) {
     try {
@@ -131,66 +142,60 @@ playerRouter.get("/", async (req, res) => {
     }
   }
 
-  const query = {};
+  try {
+    let pool = getPlayerStore();
 
-  if (useTop100) {
-    query["statsTop100.G"] = { $exists: true, $gt: 0 };
-    if (filterMin === "true") {
-      query["statsTop100.Min"] = { $gte: 15 };
-    }
-    for (const f of advancedFilters) {
-      const val = parseFloat(f.value);
-      if (isNaN(val)) continue;
-      query[`statsTop100.${f.stat}`] = f.type === "min" ? { $gte: val } : { $lte: val };
-    }
-  } else {
-    if (filterMin === "true") {
-      query["stats.Min"] = { $gte: 15 };
-    }
-    for (const f of advancedFilters) {
-      const val = parseFloat(f.value);
-      if (isNaN(val)) continue;
-      query[`stats.${f.stat}`] = f.type === "min" ? { $gte: val } : { $lte: val };
-    }
-  }
-
-  if (breakout === "true") {
-    // Breakout: non-senior, Min 15–45, G ≥ 25
-    query["year"] = { $in: NON_SENIOR_YEARS };
-    const minField = useTop100 ? "statsTop100.Min" : "stats.Min";
-    const gField   = useTop100 ? "statsTop100.G"   : "stats.G";
-    query[minField] = { $gte: 15, $lte: 45 };
-    query[gField]   = { $gte: 25 };
-  } else {
-    if (classes) {
-      const classList = classes.split(",").map((c) => c.trim()).filter(Boolean);
-      if (classList.length > 0) {
-        query["year"] = { $in: classList };
+    if (useTop100) {
+      pool = pool.filter((p) => (p.statsTop100?.G ?? 0) > 0);
+      if (filterMin === "true") pool = pool.filter((p) => (p.statsTop100?.Min ?? 0) >= 15);
+      for (const f of advancedFilters) {
+        const val = parseFloat(f.value);
+        if (isNaN(val)) continue;
+        pool = pool.filter((p) => {
+          const v = p.statsTop100?.[f.stat] ?? 0;
+          return f.type === "min" ? v >= val : v <= val;
+        });
+      }
+    } else {
+      if (filterMin === "true") pool = pool.filter((p) => (p.stats?.Min ?? 0) >= 15);
+      for (const f of advancedFilters) {
+        const val = parseFloat(f.value);
+        if (isNaN(val)) continue;
+        pool = pool.filter((p) => {
+          const v = p.stats?.[f.stat] ?? 0;
+          return f.type === "min" ? v >= val : v <= val;
+        });
       }
     }
-  }
 
-  if (positions) {
-    const posList = positions.split(",").map((p) => p.trim()).filter(Boolean);
-    const tookvikPositions = [...new Set(posList.flatMap((p) => POSITION_TO_TORVIK[p] ?? []))];
-    if (tookvikPositions.length > 0) {
-      query["position"] = { $in: tookvikPositions };
+    if (breakout === "true") {
+      const sf = useTop100 ? "statsTop100" : "stats";
+      pool = pool.filter((p) =>
+        NON_SENIOR_YEARS.includes(p.year) &&
+        (p[sf]?.Min ?? 0) >= 15 && (p[sf]?.Min ?? 0) <= 45 &&
+        (p[sf]?.G ?? 0) >= 25
+      );
+    } else {
+      if (classes) {
+        const classList = classes.split(",").map((c) => c.trim()).filter(Boolean);
+        if (classList.length > 0) pool = pool.filter((p) => classList.includes(p.year));
+      }
     }
-  }
-  if (minHeight) {
-    const val = parseInt(minHeight);
-    if (!isNaN(val)) query["heightInches"] = { ...query["heightInches"], $gte: val };
-  }
-  if (maxHeight) {
-    const val = parseInt(maxHeight);
-    if (!isNaN(val)) query["heightInches"] = { ...query["heightInches"], $lte: val };
-  }
-  if (portalOnly === "true") {
-    query["inPortal"] = true;
-  }
 
-  try {
-    const pool = await Player.find(query).lean();
+    if (positions) {
+      const posList = positions.split(",").map((p) => p.trim()).filter(Boolean);
+      const tookvikPositions = new Set(posList.flatMap((p) => POSITION_TO_TORVIK[p] ?? []));
+      if (tookvikPositions.size > 0) pool = pool.filter((p) => tookvikPositions.has(p.position));
+    }
+    if (minHeight) {
+      const val = parseInt(minHeight);
+      if (!isNaN(val)) pool = pool.filter((p) => (p.heightInches ?? 0) >= val);
+    }
+    if (maxHeight) {
+      const val = parseInt(maxHeight);
+      if (!isNaN(val)) pool = pool.filter((p) => (p.heightInches ?? Infinity) <= val);
+    }
+    if (portalOnly === "true") pool = pool.filter((p) => p.inPortal);
 
     const percentileFns = {};
     for (const s of statList) {
@@ -238,10 +243,7 @@ playerRouter.get("/", async (req, res) => {
     if (breakout === "true") {
       // Use the full Min≥15 pool as the percentile reference — same as the
       // single-player badge computation — so thresholds are consistent.
-      const refPool = await Player.find(
-        { "stats.Min": { $gte: 15 } },
-        { id: 1, "stats.BPM": 1, "stats.BPR": 1, _id: 0 }
-      ).lean();
+      const refPool = getPlayerStore().filter((p) => (p.stats?.Min ?? 0) >= 15);
       const bpmRef = refPool.filter((p) => (p.stats?.BPM ?? 0) !== 0);
       const bprRef = refPool.filter((p) => (p.stats?.BPR ?? 0) > 0);
       const bpmPctFn = calcPercentiles("BPM", bpmRef, "stats");
@@ -265,7 +267,9 @@ playerRouter.get("/", async (req, res) => {
     
     await logEvent("search", { statList, hmFilter, top100, filterMin, filters, classes, minHeight, maxHeight, portalOnly });
 
-    res.json({ statList, results: ranked });
+    const payload = { statList, results: ranked };
+    cacheSet(cacheKey, payload, TTL_SEARCH);
+    res.json(payload);
   } catch (err) {
     console.error("Player search error:", err);
     res.status(500).json({ error: "Server error" });
@@ -273,18 +277,15 @@ playerRouter.get("/", async (req, res) => {
 });
 
 // ── GET /api/players/search?q=... — name autocomplete ────────────────────────
-playerRouter.get("/search", async (req, res) => {
+playerRouter.get("/search", (req, res) => {
   const { q } = req.query;
   if (!q || q.length < 2) return res.status(400).json({ error: "Query too short" });
-  try {
-    const players = await Player.find(
-      { name: { $regex: q, $options: "i" } },
-      { id: 1, name: 1, team: 1, year: 1, position: 1, inPortal: 1 }
-    ).limit(10).lean();
-    res.json({ results: players });
-  } catch (err) {
-    res.status(500).json({ error: "Server error" });
-  }
+  const regex = new RegExp(q, "i");
+  const players = getPlayerStore()
+    .filter((p) => regex.test(p.name))
+    .slice(0, 10)
+    .map(({ id, name, team, year, position, inPortal }) => ({ id, name, team, year, position, inPortal }));
+  res.json({ results: players });
 });
 
 // ── GET /api/players/compare?p1=ID&p2=ID ─────────────────────────────────────
@@ -293,15 +294,14 @@ playerRouter.get("/compare", async (req, res) => {
   if (!p1 || !p2) return res.status(400).json({ error: "p1 and p2 player IDs are required" });
 
   try {
-    const [playerA, playerB] = await Promise.all([
-      Player.findOne({ id: p1 }).lean(),
-      Player.findOne({ id: p2 }).lean(),
-    ]);
+    const store = getPlayerStore();
+    const playerA = store.find((p) => p.id === p1) ?? null;
+    const playerB = store.find((p) => p.id === p2) ?? null;
 
     if (!playerA) return res.status(404).json({ error: `Player not found: ${p1}` });
     if (!playerB) return res.status(404).json({ error: `Player not found: ${p2}` });
 
-    const pool = await Player.find({ "stats.Min": { $gte: 15 } }).lean();
+    const pool = store.filter((p) => (p.stats?.Min ?? 0) >= 15);
 
     const enriched = [playerA, playerB].map((player) => {
       const statPcts = {};
@@ -419,7 +419,7 @@ playerRouter.get("/portal", async (req, res) => {
     const posFilter   = positions ? positions.split(",").map(p => p.trim().toUpperCase()).filter(Boolean) : [];
     const classFilter = classes   ? classes.split(",").map(c => c.trim()).filter(Boolean) : [];
 
-    let players = await Player.find({ inPortal: true }).lean();
+    let players = getPlayerStore().filter((p) => p.inPortal);
 
     // Position filter
     if (posFilter.length) {
@@ -477,16 +477,20 @@ playerRouter.get("/depth-chart", async (req, res) => {
       return res.status(400).json({ error: "Invalid or missing conference" });
     }
 
+    const depthCacheKey = `depth:${conference}`;
+    const cachedDepth = cacheGet(depthCacheKey);
+    if (cachedDepth) return res.json(cachedDepth);
+
     const conferenceTeams = PORTAL_CONFERENCE_MAP[conference];
     const teamNames = [...conferenceTeams].sort((a, b) =>
       a.localeCompare(b, undefined, { sensitivity: "base" })
     );
     const canonicalSet = new Set(teamNames);
 
-    const [players, pool] = await Promise.all([
-      Player.find({ team: { $in: expandQueryTeamNames(conferenceTeams) } }).lean(),
-      Player.find({ "stats.Min": { $gte: 15 } }).lean(),
-    ]);
+    const store = getPlayerStore();
+    const expandedTeams = new Set(expandQueryTeamNames(conferenceTeams));
+    const players = store.filter((p) => expandedTeams.has(p.team));
+    const pool = store.filter((p) => (p.stats?.Min ?? 0) >= 15);
 
     const profileGetters = buildDepthTeamProfileGetters(pool);
 
@@ -525,7 +529,9 @@ playerRouter.get("/depth-chart", async (req, res) => {
       a.localeCompare(b, undefined, { sensitivity: "base" })
     );
 
-    res.json({ conference, conferences, teams });
+    const depthPayload = { conference, conferences, teams };
+    cacheSet(depthCacheKey, depthPayload, TTL_DEPTH);
+    res.json(depthPayload);
   } catch (err) {
     console.error("Depth chart route error:", err);
     res.status(500).json({ error: "Server error" });
@@ -536,7 +542,7 @@ playerRouter.get("/depth-chart", async (req, res) => {
 playerRouter.get("/:playerId/comments", async (req, res) => {
   try {
     const { playerId } = req.params;
-    const exists = await Player.exists({ id: playerId });
+    const exists = getPlayerStore().some((p) => p.id === playerId);
     if (!exists) return res.status(404).json({ error: "Player not found" });
 
     const comments = await PlayerComment.find({ playerId })
@@ -566,7 +572,7 @@ playerRouter.post("/:playerId/comments", requireAuth, async (req, res) => {
     if (!body) return res.status(400).json({ error: "Comment cannot be empty" });
     if (body.length > 2000) return res.status(400).json({ error: "Comment too long (max 2000 characters)" });
 
-    const playerExists = await Player.exists({ id: playerId });
+    const playerExists = getPlayerStore().some((p) => p.id === playerId);
     if (!playerExists) return res.status(404).json({ error: "Player not found" });
 
     const user = await User.findById(req.user.userId);
@@ -598,10 +604,11 @@ playerRouter.get("/:playerId/similar", async (req, res) => {
     const rawLimit = parseInt(String(req.query.limit ?? "3"), 10);
     const limit = Number.isFinite(rawLimit) ? Math.min(25, Math.max(1, rawLimit)) : 3;
 
-    const target = await Player.findOne({ id: playerId }).lean();
+    const store = getPlayerStore();
+    const target = store.find((p) => p.id === playerId) ?? null;
     if (!target) return res.status(404).json({ error: "Player not found" });
 
-    const pool = await Player.find({ "stats.Min": { $gte: 15 } }).lean();
+    const pool = store.filter((p) => (p.stats?.Min ?? 0) >= 15);
     if (pool.length < 2) {
       return res.json({
         similar: [],
@@ -640,7 +647,12 @@ playerRouter.get("/:playerId/similar", async (req, res) => {
 // ── GET /api/players/:playerId — single player profile (must be last) ─────────
 playerRouter.get("/:playerId", async (req, res) => {
   try {
-    const player = await Player.findOne({ id: req.params.playerId }).lean();
+    const profileCacheKey = `profile:${req.params.playerId}`;
+    const cachedProfile = cacheGet(profileCacheKey);
+    if (cachedProfile) return res.json(cachedProfile);
+
+    const store = getPlayerStore();
+    const player = store.find((p) => p.id === req.params.playerId) ?? null;
     if (!player) return res.status(404).json({ error: "Player not found" });
 
     let isBreakout = false;
@@ -649,17 +661,19 @@ playerRouter.get("/:playerId", async (req, res) => {
     if (NON_SENIOR_YEARS.includes(player.year) && min >= 15 && min <= 45 && g >= 25) {
       const bpm = player.stats?.BPM ?? 0;
       const bpr = player.stats?.BPR ?? 0;
-      if (bpr > 0) {
-        const refPool = await Player.find({ "stats.Min": { $gte: 15 } }, { id: 1, "stats.BPM": 1, "stats.BPR": 1, _id: 0 }).lean();
+      if (bpr > 0 || bpm > 0) {
+        const refPool = store.filter((p) => (p.stats?.Min ?? 0) >= 15);
         const bpmRef  = refPool.filter((p) => (p.stats?.BPM ?? 0) !== 0);
         const bprRef  = refPool.filter((p) => (p.stats?.BPR ?? 0) > 0);
         const bpmPctFn = calcPercentiles("BPM", bpmRef, "stats");
         const bprPctFn = calcPercentiles("BPR", bprRef, "stats");
-        isBreakout = bpmPctFn(bpm) >= 80 || bprPctFn(bpr) >= 80;
+        isBreakout = bpmPctFn(bpm) >= 80 || (bpr > 0 && bprPctFn(bpr) >= 80);
       }
     }
 
-    res.json({ ...player, isBreakout });
+    const payload = { ...player, isBreakout };
+    cacheSet(profileCacheKey, payload, TTL_PROFILE);
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ error: "Server error" });
   }
