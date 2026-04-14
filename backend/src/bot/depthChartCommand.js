@@ -8,8 +8,9 @@ import {
   DEPTH_SLOTS,
 } from "../utils/depthChart.js";
 import { DiscordDepthChartTeamStat } from "../models/DiscordDepthChartTeamStat.js";
+import { SITE_URL } from "../utils/constants.js";
 
-const SITE = "https://stats-cbb.com";
+const SITE = SITE_URL;
 
 function heightClassLabel(height, year) {
   const h = height != null && String(height).trim() !== "" ? String(height).trim() : "—";

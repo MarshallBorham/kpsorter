@@ -8,6 +8,7 @@
  */
 
 import { Player } from "../models/Player.js";
+import { LOWER_IS_BETTER } from "./constants.js";
 
 const ALL_STATS = [
   "PPG", "RPG", "APG", "eFG", "TS", "OR", "DR", "ARate", "TO", "Blk", "Stl", "FTRate", "FT",
@@ -18,8 +19,6 @@ const ALL_STATS = [
   "BPM", "OBPM", "DBPM", "3P100",
   "OBPR", "DBPR", "BPR",
 ];
-
-const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
 
 function buildPercentileFn(sortedVals, lowerIsBetter) {
   const total = sortedVals.length;

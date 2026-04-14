@@ -16,6 +16,7 @@ import { recordComparison } from "../utils/recordComparison.js";
 import { portalCommand, handlePortal } from "./portalCommand.js";
 import { depthChartCommand, handleDepthChart } from "./depthChartCommand.js";
 import { resolveCanonicalTeamName } from "../data/portalConferenceMap.js";
+import { LOWER_IS_BETTER, HM_TEAMS, SITE_URL } from "../utils/constants.js";
 import { renderPlayerRadarPng } from "../utils/playerRadarPng.js";
 import {
   findSimilarByZDistance,
@@ -23,29 +24,13 @@ import {
   SIMILARITY_STATS,
 } from "../utils/playerSimilarity.js";
 
-const WEB_APP_BASE = "https://stats-cbb.com";
+const WEB_APP_BASE = SITE_URL;
 
 const ALLOWED_GUILDS = new Set([
   // "800261752540364840",
   // "1181335653703749783"
 ]);
 
-const HM_TEAMS = new Set([
-  "California", "Clemson", "Duke", "Florida State", "Georgia Tech",
-  "Louisville", "Miami FL", "North Carolina", "NC State", "Notre Dame",
-  "Pittsburgh", "SMU", "Stanford", "Syracuse", "Virginia", "Virginia Tech",
-  "Wake Forest", "Butler", "UConn", "Creighton", "DePaul", "Georgetown",
-  "Marquette", "Providence", "St. John's", "Seton Hall", "Villanova", "Xavier",
-  "Illinois", "Indiana", "Iowa", "Maryland", "Michigan", "Michigan State",
-  "Minnesota", "Nebraska", "Northwestern", "Ohio State", "Oregon", "Penn State",
-  "Purdue", "Rutgers", "UCLA", "USC", "Washington", "Wisconsin",
-  "Alabama", "Arkansas", "Auburn", "Florida", "Georgia", "Kentucky",
-  "LSU", "Mississippi State", "Missouri", "Oklahoma", "Ole Miss",
-  "South Carolina", "Tennessee", "Texas A&M", "Texas", "Vanderbilt",
-  "Boston College", "Arizona", "Arizona State", "Baylor", "BYU",
-  "Cincinnati", "Colorado", "Houston", "Iowa State", "Kansas", "Kansas State",
-  "Oklahoma State", "TCU", "Texas Tech", "UCF", "Utah", "West Virginia",
-]);
 
 const VALID_STATS = [
   { value: "PPG",      name: "Points Per Game" },
@@ -91,7 +76,6 @@ const VALID_STATS = [
 ];
 
 const VALID_STAT_VALUES = VALID_STATS.map(s => s.value);
-const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
 
 const COMPARE_STATS = [
   { key: "eFG",      label: "eFG%" },

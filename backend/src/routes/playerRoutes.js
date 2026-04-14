@@ -22,6 +22,7 @@ import {
   SIMILARITY_STATS,
 } from "../utils/playerSimilarity.js";
 import { logEvent } from "../logEvent.js";
+import { LOWER_IS_BETTER, HM_TEAMS, canonicalPositions } from "../utils/constants.js";
 import { cacheGet, cacheSet } from "../utils/cache.js";
 import { getPlayerStore } from "../utils/playerStore.js";
 
@@ -41,38 +42,8 @@ const validStats = [
   "OBPR", "DBPR", "BPR",
 ];
 
-const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
-
-const HM_TEAMS = new Set([
-  "California", "Clemson", "Duke", "Florida State", "Georgia Tech",
-  "Louisville", "Miami FL", "North Carolina", "NC State", "Notre Dame",
-  "Pittsburgh", "SMU", "Stanford", "Syracuse", "Virginia", "Virginia Tech",
-  "Wake Forest", "Butler", "UConn", "Creighton", "DePaul", "Georgetown",
-  "Marquette", "Providence", "St. John's", "Seton Hall", "Villanova", "Xavier",
-  "Illinois", "Indiana", "Iowa", "Maryland", "Michigan", "Michigan State",
-  "Minnesota", "Nebraska", "Northwestern", "Ohio State", "Oregon", "Penn State",
-  "Purdue", "Rutgers", "UCLA", "USC", "Washington", "Wisconsin",
-  "Alabama", "Arkansas", "Auburn", "Florida", "Georgia", "Kentucky",
-  "LSU", "Mississippi State", "Missouri", "Oklahoma", "Ole Miss",
-  "South Carolina", "Tennessee", "Texas A&M", "Texas", "Vanderbilt",
-  "Boston College", "Arizona", "Arizona State", "Baylor", "BYU",
-  "Cincinnati", "Colorado", "Houston", "Iowa State", "Kansas", "Kansas State",
-  "Oklahoma State", "TCU", "Texas Tech", "UCF", "Utah", "West Virginia",
-]);
 
 // ── Portal position map ───────────────────────────────────────────────────────
-const PORTAL_POS_MAP = {
-  "Pure PG":    ["PG"],
-  "Scoring PG": ["PG"],
-  "Combo G":    ["PG", "SG"],
-  "Wing G":     ["SG", "SF"],
-  "Wing F":     ["SF", "PF"],
-  "Stretch 4":  ["PF"],
-  "PF/CF":      ["PF", "C"],
-  "PF/C":       ["PF", "C"],
-  "Center":     ["C"],
-};
-
 // Simple position → Torvik position strings
 const POSITION_TO_TORVIK = {
   PG: ["Pure PG", "Scoring PG", "Combo G"],
@@ -84,10 +55,6 @@ const POSITION_TO_TORVIK = {
 
 const NON_SENIOR_YEARS = ["Fr", "So", "Jr"];
 
-function canonicalPortalPositions(rawPos) {
-  if (!rawPos) return [];
-  return PORTAL_POS_MAP[rawPos] ?? [String(rawPos).toUpperCase()];
-}
 
 function calcPercentiles(stat, pool, statsField) {
   const values = pool.map((p) => (p[statsField]?.[stat] ?? 0)).sort((a, b) => a - b);
@@ -425,7 +392,7 @@ playerRouter.get("/portal", async (req, res) => {
     // Position filter
     if (posFilter.length) {
       players = players.filter(p => {
-        const canonical = canonicalPortalPositions(p.position);
+        const canonical = canonicalPositions(p.position);
         return canonical.some(c => posFilter.includes(c));
       });
     }

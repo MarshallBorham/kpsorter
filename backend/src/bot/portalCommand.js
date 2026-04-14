@@ -1,44 +1,10 @@
 import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { Player } from "../models/Player.js";
 import { resolveCanonicalTeamName } from "../data/portalConferenceMap.js";
+import { HM_TEAMS, SITE_URL, canonicalPositions } from "../utils/constants.js";
 
-const SITE = "https://stats-cbb.com";
+const SITE = SITE_URL;
 
-// ── Position mapping ──────────────────────────────────────────────────────────
-const POS_MAP = {
-  "Pure PG":    ["PG"],
-  "Scoring PG": ["PG"],
-  "Combo G":    ["PG", "SG"],
-  "Wing G":     ["SG", "SF"],
-  "Wing F":     ["SF", "PF"],
-  "Stretch 4":  ["PF"],
-  "PF/CF":      ["PF", "C"],
-  "PF/C":       ["PF", "C"],
-  "Center":     ["C"],
-};
-
-function canonicalPositions(rawPos) {
-  if (!rawPos) return [];
-  return POS_MAP[rawPos] ?? [rawPos.toUpperCase()];
-}
-
-// ── HM teams ──────────────────────────────────────────────────────────────────
-const HM_TEAMS = new Set([
-  "California", "Clemson", "Duke", "Florida State", "Georgia Tech",
-  "Louisville", "Miami FL", "North Carolina", "NC State", "Notre Dame",
-  "Pittsburgh", "SMU", "Stanford", "Syracuse", "Virginia", "Virginia Tech",
-  "Wake Forest", "Butler", "UConn", "Creighton", "DePaul", "Georgetown",
-  "Marquette", "Providence", "St. John's", "Seton Hall", "Villanova", "Xavier",
-  "Illinois", "Indiana", "Iowa", "Maryland", "Michigan", "Michigan State",
-  "Minnesota", "Nebraska", "Northwestern", "Ohio State", "Oregon", "Penn State",
-  "Purdue", "Rutgers", "UCLA", "USC", "Washington", "Wisconsin",
-  "Alabama", "Arkansas", "Auburn", "Florida", "Georgia", "Kentucky",
-  "LSU", "Mississippi State", "Missouri", "Oklahoma", "Ole Miss",
-  "South Carolina", "Tennessee", "Texas A&M", "Texas", "Vanderbilt",
-  "Boston College", "Arizona", "Arizona State", "Baylor", "BYU",
-  "Cincinnati", "Colorado", "Houston", "Iowa State", "Kansas", "Kansas State",
-  "Oklahoma State", "TCU", "Texas Tech", "UCF", "Utah", "West Virginia",
-]);
 
 // ── Command definition ────────────────────────────────────────────────────────
 export const portalCommand = new SlashCommandBuilder()

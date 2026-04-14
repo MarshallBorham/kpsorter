@@ -1,6 +1,5 @@
 import { statGet } from "./depthChart.js";
-
-const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
+import { LOWER_IS_BETTER } from "./constants.js";
 
 const TEAM_PROFILE_CATEGORIES = [
   {

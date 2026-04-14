@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 import { createCanvas, GlobalFonts } from "@napi-rs/canvas";
 import { Player } from "../models/Player.js";
 import { RADAR_AREAS, ALL_RADAR_KEYS } from "../../../shared/radarAreas.js";
+import { LOWER_IS_BETTER } from "./constants.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,7 +38,6 @@ function ensureRadarFonts() {
   }
 }
 
-const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
 
 /** Radar axes — sourced from shared module (same 8 areas as web radar). */
 const RADAR_AXES = RADAR_AREAS;

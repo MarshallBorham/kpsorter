@@ -1,6 +1,5 @@
 import { ComparisonResult } from "../models/ComparisonResult.js";
-
-const LOWER_IS_BETTER = new Set(["TO", "FC40", "DRTG"]);
+import { LOWER_IS_BETTER } from "./constants.js";
 
 const COMPARE_STATS = [
   "eFG", "ARate", "Stl", "Blk", "OR", "DR",
