@@ -86,7 +86,7 @@ export const PORTAL_CONFERENCE_MAP = {
     "North Carolina Central", "South Carolina State",
   ),
   "Mountain West": t(
-    "Air Force", "Boise State", "Colorado State", "Fresno State", "Hawaii", "Nevada", "New Mexico",
+    "Air Force", "Boise State", "Colorado State", "Fresno State", "Grand Canyon", "Hawaii", "Nevada", "New Mexico",
     "San Diego State", "San Jose State", "UNLV", "Utah State", "Wyoming",
   ),
   MVC: t(
@@ -179,6 +179,8 @@ export const TEAM_DB_ALIASES = {
   "Cal Baptist": "California Baptist",
   "Tarleton St.": "Tarleton",
   Seattle: "Seattle U",
+  GCU: "Grand Canyon",
+  "Grand Canyon University": "Grand Canyon",
 };
 
 /** @param {string|null|undefined} dbTeam @param {Set<string>} canonicalSet */
