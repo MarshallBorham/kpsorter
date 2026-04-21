@@ -4,7 +4,7 @@ import { PORTAL_CONFERENCE_MAP, resolveCanonicalTeamName } from "../data/portalC
 
 export const rankingRouter = express.Router();
 
-const VALID_SORTS = new Set(["federerPct", "federerPctExclTies", "federerNet", "trueFedererPct", "exchangesWon"]);
+const VALID_SORTS = new Set(["federerPct", "federerPctExclTies", "federerNet", "trueFedererPct", "exchangesWon", "sosAdjustedElo", "federerElo"]);
 
 const allCanonical: Set<string> = new Set(
   Object.values(PORTAL_CONFERENCE_MAP).flatMap((s: Set<string>) => [...s])
@@ -41,7 +41,8 @@ rankingRouter.get("/", async (req: Request, res: Response) => {
       { season, gamesProcessed: { $gte: 25 }, [sort]: { $ne: null } },
       { espnTeamId: 1, teamName: 1, exchangesWon: 1, exchangesLost: 1,
         exchangesTied: 1, federerPct: 1, federerPctExclTies: 1, federerNet: 1,
-        trueWins: 1, trueLosses: 1, trueFedererPct: 1, gamesProcessed: 1 }
+        trueWins: 1, trueLosses: 1, trueFedererPct: 1, federerElo: 1, sosAdjustedElo: 1, gamesProcessed: 1,
+        gameWins: 1, gameLosses: 1 }
     )
       .sort({ [sort]: order })
       .lean();
@@ -50,7 +51,7 @@ rankingRouter.get("/", async (req: Request, res: Response) => {
     const rejected = docs.filter(d => resolveEspnName(d.teamName) === null).map(d => d.teamName);
     if (rejected.length > 0) console.log(`[rankings] filtered out ${rejected.length} non-D1 names:`, rejected.slice(0, 20));
 
-    const teams = filtered.map((d, i) => ({ rank: i + 1, ...d }));
+    const teams = filtered.map((d, i) => ({ rank: i + 1, ...d, displayName: resolveEspnName(d.teamName) ?? d.teamName }));
     res.json({ season, teams });
   } catch (err) {
     console.error("Rankings route error:", err);

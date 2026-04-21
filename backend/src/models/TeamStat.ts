@@ -13,7 +13,11 @@ export interface ITeamStat extends Document {
   trueWins: number;
   trueLosses: number;
   trueFedererPct: number | null;
+  federerElo: number | null;
+  sosAdjustedElo: number | null;
   gamesProcessed: number;
+  gameWins: number;
+  gameLosses: number;
   lastSyncedAt?: Date;
 }
 
@@ -31,7 +35,11 @@ const teamStatSchema = new Schema<ITeamStat>(
     trueWins:           { type: Number, default: 0 },
     trueLosses:         { type: Number, default: 0 },
     trueFedererPct:     { type: Number, default: null },
+    federerElo:         { type: Number, default: null },
+    sosAdjustedElo:     { type: Number, default: null },
     gamesProcessed:     { type: Number, default: 0 },
+    gameWins:           { type: Number, default: 0 },
+    gameLosses:         { type: Number, default: 0 },
     lastSyncedAt:       { type: Date },
   },
   { timestamps: true }

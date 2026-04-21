@@ -83,7 +83,7 @@ export default function Rankings() {
   const [teams,    setTeams]    = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState("");
-  const [sortCol, setSortCol] = useState("trueFedererPct");
+  const [sortCol, setSortCol] = useState("sosAdjustedElo");
   const [sortDir, setSortDir] = useState("desc");
 
   useEffect(() => {
@@ -118,6 +118,7 @@ export default function Rankings() {
   const thresholds = useMemo(() => ({
     federerNet:     median(teams.map(t => t.federerNet)),
     trueFedererPct: median(teams.map(t => t.trueFedererPct)),
+    sosAdjustedElo: median(teams.map(t => t.sosAdjustedElo)),
   }), [teams]);
 
   const sorted = useMemo(() => {
@@ -139,7 +140,7 @@ export default function Rankings() {
   return (
     <>
       <Header />
-      <main className="container" style={{ maxWidth: 1100, padding: "1.5rem 1rem" }}>
+      <main className="container" style={{ maxWidth: 760, padding: "1.5rem 1rem" }}>
         <div style={{ marginBottom: "1.25rem" }}>
           <h1 className="page-title" style={{ margin: 0 }}>Team Rankings</h1>
           <p style={{ fontFamily: MONO, color: "var(--text-muted)", fontSize: "0.72rem", letterSpacing: "0.04em", margin: "0.25rem 0 0" }}>
@@ -154,7 +155,7 @@ export default function Rankings() {
           marginBottom: "1.5rem", boxShadow: "var(--shadow-sm)",
         }}>
           <p style={{ fontFamily: MONO, fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.7, margin: 0 }}>
-            A calculation of the percentage of time a team gains a point over their opponent after they both play a single possession. Named after Roger Federer, who only won 54% of the points he played. Despite losing 46% of the time, he was still the greatest tennis player of all time.
+            Federer% is the percentage of time a team outscores their opponent after they both play a single possession (called a Possession Exchange). The stat was created in order to encapsulate how often each team truly wins and loses throughout a season. It is inspired by Roger Federer, who only won 54% of the points he played in his career. Despite losing 46% of the time, Roger was still the #1 tennis player ever because he had a Federer% of +8%.
           </p>
         </div>
 
@@ -171,7 +172,17 @@ export default function Rankings() {
         {/* ── Table ── */}
         {!loading && !error && sorted.length > 0 && (
           <div className="table-wrap">
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+              <colgroup>
+                <col style={{ width: "2.5rem" }} />
+                <col />
+                <col style={{ width: "4.5rem" }} />
+                <col style={{ width: "4rem" }} />
+                <col style={{ width: "4rem" }} />
+                <col style={{ width: "4rem" }} />
+                <col style={{ width: "7.5rem" }} />
+                <col style={{ width: "6rem" }} />
+              </colgroup>
               <thead>
                 <tr style={{
                   background: "var(--bg-2)", borderBottom: "1px solid var(--border-bright)",
@@ -180,12 +191,12 @@ export default function Rankings() {
                 }}>
                   <th style={{ ...thStyle, textAlign: "center" }}>#</th>
                   <th style={{ ...thStyle }}>Team</th>
-                  <SortTh label="Games" col="gamesProcessed" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
-                  <SortTh label="W"     col="exchangesWon"   sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Total possession exchange wins" />
-                  <SortTh label="L"     col="exchangesLost"  sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Total possession exchange losses" />
-                  <SortTh label="T"     col="exchangesTied"  sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Total possession exchange ties" />
-                  <SortTh label="Federer%"     col="trueFedererPct" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Efficiency at gaining a point over an opponent in a given possession exchange" />
-                  <SortTh label="Raw Federer%" col="federerNet"     sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Ratio of the net wins and losses to total exchanges" />
+                  <SortTh label="ELO"            col="sosAdjustedElo" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="An adjusted Elo rating combining True Federer% and strength of schedule" />
+                  <SortTh label="W"              col="exchangesWon"   sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Total possession exchange wins" />
+                  <SortTh label="L"              col="exchangesLost"  sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Total possession exchange losses" />
+                  <SortTh label="T"              col="exchangesTied"  sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Total possession exchange ties" />
+                  <SortTh label="True Federer%"  col="trueFedererPct" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Federer% weighted by the margin of each possession exchange" />
+                  <SortTh label="Federer%"       col="federerNet"     sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Ratio of exchange wins minus exchange losses over total exchanges" />
                 </tr>
               </thead>
               <tbody>
@@ -202,13 +213,18 @@ export default function Rankings() {
                     </td>
 
                     {/* Team */}
-                    <td style={{ fontFamily: MONO, fontWeight: 700, fontSize: "0.85rem", color: "var(--text)", padding: "0.65rem 0.75rem", whiteSpace: "nowrap" }}>
-                      {t.teamName}
+                    <td style={{ fontFamily: MONO, fontWeight: 700, fontSize: "0.85rem", color: "var(--text)", padding: "0.65rem 0.5rem 0.65rem 0.75rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {t.displayName}
+                      {(t.gameWins != null && t.gameLosses != null) && (
+                        <span style={{ fontWeight: 400, fontSize: "0.72rem", color: "var(--text-muted)", marginLeft: "0.35rem" }}>
+                          ({t.gameWins}–{t.gameLosses})
+                        </span>
+                      )}
                     </td>
 
-                    {/* Games */}
-                    <td style={{ fontFamily: MONO, fontSize: "0.78rem", textAlign: "center", color: "var(--text-muted)", padding: "0.65rem 0.75rem" }}>
-                      {t.gamesProcessed}
+                    {/* ELO (×10 for whole number around 1000) */}
+                    <td style={{ fontFamily: MONO, fontSize: "0.85rem", fontWeight: 700, textAlign: "center", padding: "0.65rem 0.5rem", color: "var(--text)" }}>
+                      {t.sosAdjustedElo != null ? Math.round(t.sosAdjustedElo * 10) : "—"}
                     </td>
 
                     {/* W */}
@@ -226,12 +242,12 @@ export default function Rankings() {
                       {t.exchangesTied.toLocaleString()}
                     </td>
 
-                    {/* Federer% */}
-                    <td style={{ fontFamily: MONO, fontSize: "0.85rem", fontWeight: 700, textAlign: "center", padding: "0.65rem 0.75rem", color: pctColor(t.trueFedererPct, thresholds.trueFedererPct) }}>
+                    {/* True Federer% */}
+                    <td style={{ fontFamily: MONO, fontSize: "0.85rem", fontWeight: 400, textAlign: "center", padding: "0.65rem 0.75rem", color: t.trueFedererPct > 0 ? "var(--success)" : t.trueFedererPct < 0 ? "var(--error)" : "var(--text)" }}>
                       {fmtNet(t.trueFedererPct)}
                     </td>
 
-                    {/* Raw Federer% */}
+                    {/* Federer% (formerly Raw) */}
                     <td style={{ fontFamily: MONO, fontSize: "0.82rem", textAlign: "center", padding: "0.65rem 0.75rem", color: pctColor(t.federerNet, thresholds.federerNet) }}>
                       {fmtNet(t.federerNet)}
                     </td>
@@ -245,10 +261,10 @@ export default function Rankings() {
         {/* ── Legend ── */}
         {!loading && !error && sorted.length > 0 && (
           <div style={{ marginTop: "1.25rem", fontFamily: MONO, fontSize: "0.65rem", color: "var(--text-muted)", letterSpacing: "0.04em" }}>
-            // Raw Federer%: (W−L) / total &nbsp;·&nbsp;
-            Federer%: margin-weighted exchange win rate &nbsp;·&nbsp;
-            colors relative to 50th percentile of visible teams &nbsp;·&nbsp;
-            click headers to sort · hover headers for descriptions
+            // ELO: (100 + True Federer%) × SOS × 10 &nbsp;·&nbsp;
+            True Federer%: margin-weighted exchange win rate &nbsp;·&nbsp;
+            Federer%: (W−L) / total exchanges &nbsp;·&nbsp;
+            colors relative to 50th percentile · click headers to sort · hover headers for descriptions
           </div>
         )}
       </main>
