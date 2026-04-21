@@ -155,7 +155,7 @@ export default function Rankings() {
           marginBottom: "1.5rem", boxShadow: "var(--shadow-sm)",
         }}>
           <p style={{ fontFamily: MONO, fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.7, margin: 0 }}>
-            Federer% is the percentage of time a team outscores their opponent after they both play a single possession (called a Possession Exchange). The stat was created in order to encapsulate how often each team truly wins and loses throughout a season. It is inspired by Roger Federer, who only won 54% of the points he played in his career. Despite losing 46% of the time, Roger was still the #1 tennis player ever because he had a Federer% of +8%.
+            Federer% is the percentage of time a team outscores their opponent after they both play a single possession (called a Possession Exchange). The stat was created in order to encapsulate how often each team truly wins and loses throughout a season. It is inspired by Roger Federer, who only won 54% of the points he played in his career. Despite losing 46% of the time, Roger was still the #1 ranked tennis player because he had a Federer% of +8%.
           </p>
         </div>
 
