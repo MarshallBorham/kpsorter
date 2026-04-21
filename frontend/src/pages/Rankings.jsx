@@ -4,6 +4,25 @@ import Header from "../components/Header.jsx";
 
 const MONO = "var(--font-mono)";
 
+const TEAM_DISPLAY = {
+  "North Carolina Wilmington":  "UNC Wilmington",
+  "Texas A&M-Corpus Christi":   "Texas A&M-CC",
+  "Cal State Northridge":       "CSU Northridge",
+  "Cal State Fullerton":        "CSU Fullerton",
+  "UT Rio Grande Valley":       "UTRGV",
+  "East Tennessee State":       "ETSU",
+  "Charleston Southern":        "Charleston South",
+  "Southeast Missouri State":   "SE Missouri State",
+  "Central Connecticut":        "Central Conn",
+  "Southeastern Louisiana":     "SE Louisiana",
+  "Cal State Bakersfield":      "CSU Bakersfield",
+  "Fairleigh Dickinson":        "FDU",
+  "North Carolina Central":     "UNC Central",
+  "Arkansas-Pine Bluff":        "Arkansas PB",
+  "Maryland Eastern Shore":     "UMES",
+  "South Carolina State":       "South Carolina St",
+};
+
 const CONF_ABBREV = {
   "America East":  "AE",
   "Atlantic 10":   "A10",
@@ -182,7 +201,7 @@ export default function Rankings() {
           marginBottom: "1.5rem", boxShadow: "var(--shadow-sm)",
         }}>
           <p style={{ fontFamily: MONO, fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.7, margin: 0 }}>
-            Federer% is the percentage of time a team outscores their opponent after they both play a single possession (called a Possession Exchange). The stat was created in order to encapsulate how often each team truly wins and loses throughout a season. It is inspired by Roger Federer, who only won 54% of the points he played in his career. Despite losing 46% of the time, Roger was still the #1 ranked tennis player because he had a Federer% of +8%.
+            Federer% is the percentage of time a team outscores their opponent after they both play a single possession (called a Possession Exchange). The stat was created in order to encapsulate how often each team truly wins and loses throughout a season. It is inspired by Roger Federer, who only won 54% of the points he played in his career. Despite losing 46% of the time, Roger was still the #1 ranked player because he had a Federer% of +8%.
           </p>
         </div>
 
@@ -243,7 +262,7 @@ export default function Rankings() {
 
                     {/* Team */}
                     <td style={{ fontFamily: MONO, fontWeight: 700, fontSize: "0.85rem", color: "var(--text)", padding: "0.65rem 0.5rem 0.65rem 0.75rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {t.displayName}
+                      {TEAM_DISPLAY[t.displayName] ?? t.displayName}
                       {(t.gameWins != null && t.gameLosses != null) && (
                         <span style={{ fontWeight: 400, fontSize: "0.72rem", color: "var(--text-muted)", marginLeft: "0.35rem" }}>
                           ({t.gameWins}–{t.gameLosses})
@@ -279,7 +298,7 @@ export default function Rankings() {
                     </td>
 
                     {/* True Federer% */}
-                    <td style={{ fontFamily: MONO, fontSize: "0.85rem", fontWeight: 400, textAlign: "center", padding: "0.65rem 0.75rem", color: t.trueFedererPct > 0 ? "var(--success)" : t.trueFedererPct < 0 ? "var(--error)" : "var(--text)" }}>
+                    <td style={{ fontFamily: MONO, fontSize: "0.85rem", fontWeight: 400, textAlign: "center", padding: "0.65rem 0.75rem", color: t.trueFedererPct >= 0 ? "var(--success)" : "var(--error)" }}>
                       {fmtNet(t.trueFedererPct)}
                     </td>
 
@@ -294,15 +313,6 @@ export default function Rankings() {
           </div>
         )}
 
-        {/* ── Legend ── */}
-        {!loading && !error && sorted.length > 0 && (
-          <div style={{ marginTop: "1.25rem", fontFamily: MONO, fontSize: "0.65rem", color: "var(--text-muted)", letterSpacing: "0.04em" }}>
-            // ELO: (100 + True Federer%) × SOS × 10 &nbsp;·&nbsp;
-            True Federer%: margin-weighted exchange win rate &nbsp;·&nbsp;
-            Federer%: (W−L) / total exchanges &nbsp;·&nbsp;
-            colors relative to 50th percentile · click headers to sort · hover headers for descriptions
-          </div>
-        )}
       </main>
     </>
   );
