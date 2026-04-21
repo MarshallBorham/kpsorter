@@ -10,6 +10,13 @@ const allCanonical: Set<string> = new Set(
   Object.values(PORTAL_CONFERENCE_MAP).flatMap((s: Set<string>) => [...s])
 );
 
+function getConference(canonicalName: string): string | null {
+  for (const [conf, names] of Object.entries(PORTAL_CONFERENCE_MAP)) {
+    if ((names as Set<string>).has(canonicalName)) return conf;
+  }
+  return null;
+}
+
 /**
  * ESPN teamName is e.g. "Auburn Tigers". Strip trailing mascot word(s) to find
  * the canonical name. Falls back to a startsWith scan for unusual formats.
@@ -51,7 +58,11 @@ rankingRouter.get("/", async (req: Request, res: Response) => {
     const rejected = docs.filter(d => resolveEspnName(d.teamName) === null).map(d => d.teamName);
     if (rejected.length > 0) console.log(`[rankings] filtered out ${rejected.length} non-D1 names:`, rejected.slice(0, 20));
 
-    const teams = filtered.map((d, i) => ({ rank: i + 1, ...d, displayName: resolveEspnName(d.teamName) ?? d.teamName }));
+    const teams = filtered.map((d, i) => {
+      const displayName = resolveEspnName(d.teamName) ?? d.teamName;
+      const conference  = getConference(displayName);
+      return { rank: i + 1, ...d, displayName, conference };
+    });
     res.json({ season, teams });
   } catch (err) {
     console.error("Rankings route error:", err);

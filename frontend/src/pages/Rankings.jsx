@@ -1,7 +1,26 @@
 import { useEffect, useState, useMemo, useRef } from "react";
+import { Link } from "react-router";
 import Header from "../components/Header.jsx";
 
 const MONO = "var(--font-mono)";
+
+const CONF_ABBREV = {
+  "America East":  "AE",
+  "Atlantic 10":   "A10",
+  "Big 12":        "B12",
+  "Big East":      "BE",
+  "Big Sky":       "BSky",
+  "Big South":     "BSth",
+  "Big Ten":       "B10",
+  "Big West":      "BW",
+  "Horizon":       "Hrzn",
+  "Mountain West": "MW",
+  "Patriot":       "PL",
+  "Southern":      "SC",
+  "Southland":     "Slnd",
+  "Summit":        "Sum",
+  "Sun Belt":      "SB",
+};
 
 function fmtNet(val) {
   if (val == null) return "—";
@@ -110,7 +129,7 @@ export default function Rankings() {
       setSortDir(d => d === "desc" ? "asc" : "desc");
     } else {
       setSortCol(col);
-      setSortDir("desc");
+      setSortDir(col === "conference" ? "asc" : "desc");
     }
   }
 
@@ -124,6 +143,14 @@ export default function Rankings() {
   const sorted = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
     return [...teams].sort((a, b) => {
+      if (sortCol === "conference") {
+        const ac = a.conference ?? "zzz";
+        const bc = b.conference ?? "zzz";
+        const confCmp = ac.localeCompare(bc) * dir;
+        if (confCmp !== 0) return confCmp;
+        // within same conference, sort by ELO descending
+        return (b.sosAdjustedElo ?? -Infinity) - (a.sosAdjustedElo ?? -Infinity);
+      }
       const av = a[sortCol] ?? (sortDir === "asc" ? Infinity : -Infinity);
       const bv = b[sortCol] ?? (sortDir === "asc" ? Infinity : -Infinity);
       return (av - bv) * dir;
@@ -140,7 +167,7 @@ export default function Rankings() {
   return (
     <>
       <Header />
-      <main className="container" style={{ maxWidth: 760, padding: "1.5rem 1rem" }}>
+      <main className="container" style={{ maxWidth: 920, padding: "1.5rem 1rem" }}>
         <div style={{ marginBottom: "1.25rem" }}>
           <h1 className="page-title" style={{ margin: 0 }}>Team Rankings</h1>
           <p style={{ fontFamily: MONO, color: "var(--text-muted)", fontSize: "0.72rem", letterSpacing: "0.04em", margin: "0.25rem 0 0" }}>
@@ -175,7 +202,8 @@ export default function Rankings() {
             <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
               <colgroup>
                 <col style={{ width: "2.5rem" }} />
-                <col />
+                <col style={{ width: "13rem" }} />
+                <col style={{ width: "5.5rem" }} />
                 <col style={{ width: "4.5rem" }} />
                 <col style={{ width: "4rem" }} />
                 <col style={{ width: "4rem" }} />
@@ -191,6 +219,7 @@ export default function Rankings() {
                 }}>
                   <th style={{ ...thStyle, textAlign: "center" }}>#</th>
                   <th style={{ ...thStyle }}>Team</th>
+                  <SortTh label="Conf"           col="conference"    sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Conference — sorts alphabetically by conf, then by ELO within" />
                   <SortTh label="ELO"            col="sosAdjustedElo" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="An adjusted Elo rating combining True Federer% and strength of schedule" />
                   <SortTh label="W"              col="exchangesWon"   sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Total possession exchange wins" />
                   <SortTh label="L"              col="exchangesLost"  sortCol={sortCol} sortDir={sortDir} onSort={handleSort} tooltip="Total possession exchange losses" />
@@ -220,6 +249,13 @@ export default function Rankings() {
                           ({t.gameWins}–{t.gameLosses})
                         </span>
                       )}
+                    </td>
+
+                    {/* Conf */}
+                    <td style={{ fontFamily: MONO, fontSize: "0.72rem", fontWeight: 400, textAlign: "center", padding: "0.65rem 0.5rem", whiteSpace: "nowrap" }}>
+                      {t.conference
+                        ? <Link to={`/depth-chart?conference=${encodeURIComponent(t.conference)}`} style={{ color: "var(--text-muted)", textDecoration: "none" }}>{CONF_ABBREV[t.conference] ?? t.conference}</Link>
+                        : "—"}
                     </td>
 
                     {/* ELO (×10 for whole number around 1000) */}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import Header from "../components/Header.jsx";
 
 const MONO = "var(--font-mono)";
@@ -184,7 +184,8 @@ function heightClassLabel(height, year) {
 }
 
 export default function DepthChartPage() {
-  const [conference, setConference] = useState("ACC");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const conference = searchParams.get("conference") || "ACC";
   const [conferences, setConferences] = useState([]);
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -238,7 +239,7 @@ export default function DepthChartPage() {
             </label>
             <select
               value={conference}
-              onChange={(e) => setConference(e.target.value)}
+              onChange={(e) => setSearchParams({ conference: e.target.value })}
               style={{
                 fontFamily: MONO,
                 fontSize: "0.8rem",
