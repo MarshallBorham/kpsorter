@@ -140,6 +140,15 @@ export function buildTeamDepth(players: PlayerLike[]): DepthChart {
   return out;
 }
 
+// Strip apostrophes/periods and collapse spaces — "St. John's" → "st johns"
+function normPunct(s: string): string {
+  return s.toLowerCase().replace(/['.]/g, "").replace(/\s+/g, " ").trim();
+}
+// Also remove all spaces — "St. John's" → "stjohns"
+function normCompact(s: string): string {
+  return normPunct(s).replace(/\s/g, "");
+}
+
 /**
  * Map free-text (Discord) to a canonical school label from PORTAL_CONFERENCE_MAP.
  */
@@ -148,13 +157,23 @@ export function resolveUserTeamToCanonical(input: string): string | null {
   if (!trimmed) return null;
   const lower = trimmed.toLowerCase();
 
+  // Pass 1: exact case-insensitive
   for (const c of ALL_CANONICAL_TEAMS) {
     if (c.toLowerCase() === lower) return c;
   }
+  // Pass 2: resolveCanonicalTeamName heuristic
   for (const c of ALL_CANONICAL_TEAMS) {
     if (resolveCanonicalTeamName(trimmed, new Set([c])) === c) return c;
   }
+  // Pass 3: punctuation-normalized exact match ("st johns" == "St. John's")
+  const normInput   = normPunct(trimmed);
+  const normCompact_ = normCompact(trimmed);
+  const normHits = [...ALL_CANONICAL_TEAMS].filter(
+    (c) => normPunct(c) === normInput || normCompact(c) === normCompact_
+  );
+  if (normHits.length === 1) return normHits[0];
 
+  // Pass 4: substring match
   const hits = [...ALL_CANONICAL_TEAMS].filter(
     (c) =>
       c.toLowerCase().includes(lower) ||
