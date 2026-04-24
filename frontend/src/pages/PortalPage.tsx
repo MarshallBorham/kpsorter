@@ -19,6 +19,8 @@ interface PortalPlayer {
   RPG?: number | null;
   APG?: number | null;
   BPR?: number | null;
+  TV?: number | null;
+  tvTier?: "top" | "mid" | "bottom";
   portalCommitted?: boolean;
 }
 
@@ -42,6 +44,9 @@ export default function PortalPage() {
   const [selClasses,     setSelClasses]     = useState<string[]>([]);
   const [search,         setSearch]         = useState("");
 
+  // Scarcity widget data
+  const [positionScarcity, setPositionScarcity] = useState<Record<string, { count: number; S: number; multiplier: number }> | null>(null);
+
   // Save state
   const [saved,  setSaved]  = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState<string | null>(null);
@@ -56,6 +61,7 @@ export default function PortalPage() {
         if (!res.ok) { setError(data.error || "Failed to load portal players"); return; }
         setPlayers(data.players);
         setConferences(data.conferences ?? []);
+        setPositionScarcity(data.positionScarcity ?? null);
       } catch {
         setError("Network error");
       } finally {
@@ -113,6 +119,7 @@ export default function PortalPage() {
         const data = await res.json();
         if (!res.ok) { setError(data.error || "Failed to load portal players"); return; }
         setPlayers(data.players);
+        setPositionScarcity(data.positionScarcity ?? null);
       } catch {
         setError("Network error");
       } finally {
@@ -164,7 +171,7 @@ export default function PortalPage() {
           <div>
             <h1 className="page-title" style={{ margin: 0 }}>Transfer Portal</h1>
             <p style={{ fontFamily: MONO, color: "var(--text-muted)", fontSize: "0.72rem", letterSpacing: "0.04em", margin: "0.25rem 0 0" }}>
-              // {loading ? "Loading…" : `${filtered.length} players · sorted by BPR`}
+              // {loading ? "Loading…" : `${filtered.length} players · sorted by Rating`}
             </p>
           </div>
         </div>
@@ -310,8 +317,8 @@ export default function PortalPage() {
                   fontFamily: MONO, fontSize: "0.6rem", fontWeight: 700,
                   letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)",
                 }}>
-                  {["#", "Name", "Pos", "Team", "Yr", "Ht", "PPG", "RPG", "APG", "BPR", ""].map((h, i) => (
-                    <th key={i} style={{ padding: "0.6rem 0.75rem", textAlign: i === 0 || i >= 6 ? "center" : "left", whiteSpace: "nowrap" }}>
+                  {["#", "Name", "Rating", "Pos", "Team", "Yr", "Ht", "PPG", "RPG", "APG", "BPR", ""].map((h, i) => (
+                    <th key={i} style={{ padding: "0.6rem 0.75rem", textAlign: ["Name", "Pos", "Team", "Yr", "Ht"].includes(h) ? "left" : "center", whiteSpace: "nowrap" }}>
                       {h}
                     </th>
                   ))}
@@ -357,6 +364,12 @@ export default function PortalPage() {
                             Committed
                           </span>
                         )}
+                      </td>
+
+                      {/* Rating */}
+                      <td style={{ fontFamily: MONO, fontSize: "0.8rem", fontWeight: 700, textAlign: "center", padding: "0.65rem 0.75rem", whiteSpace: "nowrap",
+                        color: p.TV == null ? "var(--text-muted)" : p.TV >= 0 ? "var(--primary)" : "var(--error)" }}>
+                        {fmt(p.TV, 2)}
                       </td>
 
                       {/* Position */}

@@ -11,7 +11,8 @@ import {
   resolveCanonicalTeamName,
   expandQueryTeamNames,
 } from "../data/portalConferenceMap.js";
-import { buildTeamDepth, filterDepthChartRoster, depthChartSlotForPlayer, depthChartDisplayYear } from "../utils/depthChart.js";
+import { buildTeamDepth, filterDepthChartRoster, depthChartSlotForPlayer, depthChartDisplayYear, DEPTH_SLOTS, DepthSlot } from "../utils/depthChart.js";
+import { calcTV } from "../utils/tfv.js";
 import {
   buildDepthTeamProfileGetters,
   computeTeamDepthProfile,
@@ -397,23 +398,45 @@ playerRouter.get("/portal", async (req: Request, res: Response) => {
       players = players.filter(p => classFilter.includes(p.year as string));
     }
 
-    players.sort((a, b) => {
-      const bprA = (a.stats as Record<string, number> | undefined)?.BPR ?? -Infinity;
-      const bprB = (b.stats as Record<string, number> | undefined)?.BPR ?? -Infinity;
-      return bprB - bprA;
-    });
+    // Scarcity: count ALL portal players per slot (global market signal, unaffected by filters)
+    const LAMBDA = 0.3;
+    const BETA   = 0.5;
+    const allPortal = getPlayerStore().filter(p => p.inPortal || p.portalCommitted);
+    const rawCounts: Partial<Record<DepthSlot, number>> = {};
+    for (const p of allPortal) {
+      const slot = depthChartSlotForPlayer(p);
+      if (slot) rawCounts[slot] = (rawCounts[slot] ?? 0) + 1;
+    }
+    const slotCounts = DEPTH_SLOTS.map(s => rawCounts[s] ?? 0).filter(c => c > 0);
+    const C_min = slotCounts.length ? Math.min(...slotCounts) : 1;
 
-    const result = players.map(p => {
-      const s = p.stats as Record<string, number> | undefined;
+    const positionScarcity: Record<string, { count: number; S: number; multiplier: number }> = {};
+    for (const slot of DEPTH_SLOTS) {
+      const count = rawCounts[slot] ?? 0;
+      const S = count > 0 ? Math.pow(C_min / count, BETA) : 1;
+      positionScarcity[slot] = { count, S: +S.toFixed(3), multiplier: +(1 + LAMBDA * S).toFixed(3) };
+    }
+
+    const withTv = players.map(p => {
+      const s    = p.stats as Record<string, number> | undefined;
+      const bpr  = s?.BPR ?? 0;
+      const slot = depthChartSlotForPlayer(p) ?? "PG";
+      const { tv, tier } = calcTV(bpr, (p.year as string) ?? "Sr", slot);
+      const totalValue = +(tv * (positionScarcity[slot]?.multiplier ?? 1)).toFixed(2);
       return {
         id: p.id, name: p.name, position: p.position, team: p.team,
         year: p.year, height: p.height, portalCommitted: p.portalCommitted ?? false,
         PPG: s?.PPG ?? null, RPG: s?.RPG ?? null, APG: s?.APG ?? null,
         BPR: s?.BPR ?? null, OBPR: s?.OBPR ?? null, DBPR: s?.DBPR ?? null,
+        TV: totalValue, tvTier: tier,
       };
     });
 
-    res.json({ players: result, conferences: Object.keys(PORTAL_CONFERENCE_MAP) });
+    withTv.sort((a, b) => (b.TV ?? -Infinity) - (a.TV ?? -Infinity));
+
+    const result = withTv;
+
+    res.json({ players: result, conferences: Object.keys(PORTAL_CONFERENCE_MAP), positionScarcity });
   } catch (err) {
     console.error("Portal route error:", err);
     res.status(500).json({ error: "Server error" });
