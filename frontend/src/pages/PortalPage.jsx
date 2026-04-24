@@ -161,7 +161,7 @@ export default function PortalPage() {
 
         {/* ── Filters ── */}
         <div style={{
-          background: "var(--surface)", border: "1px solid var(--border)",
+          background: "var(--surface)", border: "var(--border-card)",
           borderRadius: "var(--radius-lg)", padding: "1.25rem",
           marginBottom: "1.5rem", boxShadow: "var(--shadow-sm)",
           display: "flex", flexDirection: "column", gap: "1rem",

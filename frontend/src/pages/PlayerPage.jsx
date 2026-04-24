@@ -70,7 +70,7 @@ function StatCard({ statKey, val, pct, prevVal }) {
   return (
     <div style={{
       background: "var(--surface)",
-      border: "1px solid var(--border)",
+      border: "var(--border-card)",
       borderRadius: "var(--radius)",
       padding: "0.75rem 1rem",
     }}>
@@ -250,7 +250,7 @@ export default function PlayerPage() {
             {/* Header card */}
             <div style={{
               background: "var(--surface)",
-              border: "1px solid var(--border)",
+              border: "var(--border-card)",
               borderRadius: "var(--radius-lg)",
               padding: "1.5rem",
               boxShadow: "var(--shadow)",
@@ -422,7 +422,7 @@ export default function PlayerPage() {
                         justifyContent: "space-between",
                         gap: "0.35rem 0.75rem",
                         background: "var(--surface)",
-                        border: "1px solid var(--border)",
+                        border: "var(--border-card)",
                         borderRadius: "var(--radius)",
                         padding: "0.55rem 0.75rem",
                       }}
@@ -528,7 +528,7 @@ export default function PlayerPage() {
                     key={c.id}
                     style={{
                       background: "var(--surface)",
-                      border: "1px solid var(--border)",
+                      border: "var(--border-card)",
                       borderRadius: "var(--radius)",
                       padding: "0.85rem 1rem",
                     }}

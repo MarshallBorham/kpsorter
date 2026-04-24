@@ -272,7 +272,7 @@ export default function DepthChartPage() {
                 key={team.name}
                 style={{
                   background: "var(--surface)",
-                  border: "1px solid var(--border)",
+                  border: "var(--border-card)",
                   borderRadius: "var(--radius-lg)",
                   padding: "1.1rem 1rem",
                   boxShadow: "var(--shadow-sm)",

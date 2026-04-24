@@ -196,7 +196,7 @@ export default function Rankings() {
 
         {/* ── Description ── */}
         <div style={{
-          background: "var(--surface)", border: "1px solid var(--border)",
+          background: "var(--surface)", border: "var(--border-card)",
           borderRadius: "var(--radius-lg)", padding: "1.25rem",
           marginBottom: "1.5rem", boxShadow: "var(--shadow-sm)",
         }}>
