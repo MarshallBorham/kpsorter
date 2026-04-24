@@ -317,7 +317,7 @@ export default function PortalPage() {
                   fontFamily: MONO, fontSize: "0.6rem", fontWeight: 700,
                   letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-muted)",
                 }}>
-                  {["#", "Name", "Rating", "Pos", "Team", "Yr", "Ht", "PPG", "RPG", "APG", "BPR", ""].map((h, i) => (
+                  {["#", "Name", "Rating", "Pos", "Team", "Yr", "Ht", "PPG", "RPG", "APG", ""].map((h, i) => (
                     <th key={i} style={{ padding: "0.6rem 0.75rem", textAlign: ["Name", "Pos", "Team", "Yr", "Ht"].includes(h) ? "left" : "center", whiteSpace: "nowrap" }}>
                       {h}
                     </th>
@@ -405,12 +405,6 @@ export default function PortalPage() {
                       {/* APG */}
                       <td style={{ fontFamily: MONO, fontSize: "0.8rem", textAlign: "center", padding: "0.65rem 0.75rem", whiteSpace: "nowrap" }}>
                         {fmt(p.APG)}
-                      </td>
-
-                      {/* BPR */}
-                      <td style={{ fontFamily: MONO, fontSize: "0.8rem", fontWeight: 700, textAlign: "center", padding: "0.65rem 0.75rem", whiteSpace: "nowrap",
-                        color: p.BPR == null ? "var(--text-muted)" : p.BPR >= 0 ? "var(--success)" : "var(--error)" }}>
-                        {fmt(p.BPR)}
                       </td>
 
                       {/* Save */}
