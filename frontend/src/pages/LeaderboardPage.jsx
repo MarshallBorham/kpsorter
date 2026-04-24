@@ -54,7 +54,7 @@ export default function LeaderboardPage() {
         )}
 
         {leaderboard.length > 0 && (
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
+          <div style={{ background: "var(--surface)", border: "var(--border-card)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
             {/* Header row */}
             <div style={{
               display: "grid",

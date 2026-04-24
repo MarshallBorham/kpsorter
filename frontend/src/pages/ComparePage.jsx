@@ -307,7 +307,7 @@ export default function ComparePage() {
             <div style={{
               display: "grid", gridTemplateColumns: "1fr auto 1fr",
               gap: "1rem", alignItems: "center",
-              background: "var(--surface)", border: "1px solid var(--border)",
+              background: "var(--surface)", border: "var(--border-card)",
               borderRadius: "var(--radius-lg)", padding: "1.5rem",
               marginBottom: "2rem", boxShadow: "var(--shadow)",
             }}>
@@ -350,7 +350,7 @@ export default function ComparePage() {
                     // {group.label}
                   </h2>
                   <div style={{
-                    background: "var(--surface)", border: "1px solid var(--border)",
+                    background: "var(--surface)", border: "var(--border-card)",
                     borderRadius: "var(--radius-lg)", padding: "0 1rem",
                     boxShadow: "var(--shadow-sm)", overflow: "hidden",
                   }}>

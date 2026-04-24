@@ -572,7 +572,7 @@ export default function HomePage() {
           {trending.length > 0 && (
             <div style={{
               background: "var(--surface)",
-              border: "1px solid var(--border)",
+              border: "var(--border-card)",
               borderRadius: "var(--radius-lg)",
               boxShadow: "var(--shadow)",
               padding: "1.25rem 1.5rem",
